@@ -4,100 +4,119 @@ from transformers import AutoTokenizer, AutoModel
 import torch.nn.functional as F
 
 class TransformerWrapper(nn.Module):
-    def __init__(self, tokenizer_path, model_path, device=None, use_trainable_pooling=False, 
-                 use_conv_pooling=False, n_groups=None, max_seq_length=512, 
-                 overlap_pooling=False):
+    def __init__(self, tokenizer_path, model_path, device=None, 
+                 use_conv_grouped_pooling=False, n_groups=None, max_seq_length=512, 
+                 use_learnable_single_pooling=False, conv_kernel_size=3):
         """
         Args:
-            tokenizer_path: Hugging Face tokenizer
-            model_path: Hugging Face model
+            tokenizer_path: Hugging Face tokenizer path
+            model_path: Hugging Face model path
             device: 'cuda' or 'cpu'
-            use_trainable_pooling: whether to use trainable weighted pooling
-            use_conv_pooling: if True, uses Conv1D for grouped pooling
-            n_groups: number of groups (required if use_conv_pooling=True, fixed per experiment)
-            max_seq_length: maximum sequence length
-            overlap_pooling: if True, use overlapping windows (stride = kernel_size // 2)
+            use_conv_grouped_pooling: if True, uses Conv1D + Adaptive Pooling for grouped encoding.
+            n_groups: number of groups for grouped encoding (required if use_conv_grouped_pooling=True).
+            max_seq_length: maximum sequence length for tokenization.
+            use_learnable_single_pooling: if True, initializes weights for attention-based single pooling.
+            conv_kernel_size: kernel size for the depthwise convolution used in grouped pooling.
         """
         super().__init__()
+        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        
+        # Load HuggingFace components
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
         self.model = AutoModel.from_pretrained(model_path)
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(self.device)
-        self.model.eval()  # default inference mode
+        # Default to eval mode for the base HF model so dropout is off by default
+        self.model.eval() 
         
-        # Get hidden size from model config
         self.hidden_size = self.model.config.hidden_size
-        
-        # Pooling options
-        self.use_trainable_pooling = use_trainable_pooling
-        self.use_conv_pooling = use_conv_pooling
-        self.n_groups = n_groups
         self.max_seq_length = max_seq_length
-        self.overlap_pooling = overlap_pooling
+        self.n_groups = n_groups
         
-        # Validate conv pooling config
-        if use_conv_pooling and n_groups is None:
-            raise ValueError("n_groups must be specified when use_conv_pooling=True")
-        
-        # Initialize trainable pooling weights (lazy init)
-        if use_trainable_pooling:
-            self.pool_weights = None
-        
-        # For conv pooling, we'll use dynamic depthwise conv weights
-        # This allows handling variable sequence lengths correctly
-        # Depthwise: each channel (embedding dimension) pools independently
-        if use_conv_pooling:
-            # Store learnable depthwise conv weights
-            # Shape: (hidden_size, 1, kernel_size) for depthwise conv
-            self.conv_weights = None
-            self.conv_bias = None
-        else:
-            self.conv_weights = None
-            self.conv_bias = None
+        # Configuration flags
+        self.use_conv_grouped_pooling = use_conv_grouped_pooling
+        self.use_learnable_single_pooling = use_learnable_single_pooling
+
+        # --- Initialize Learnable Parameters ---
+
+        # 1. Parameters for single learnable attention pooling
+        if self.use_learnable_single_pooling:
+            # A learnable query vector to attend to the sequence
+            self.attention_query = nn.Parameter(torch.randn(1, 1, self.hidden_size))
+            self.attention_proj = nn.Linear(self.hidden_size, self.hidden_size)
+
+        # 2. Parameters for grouped convolution pooling
+        if self.use_conv_grouped_pooling:
+            if self.n_groups is None:
+                raise ValueError("n_groups must be specified when use_conv_grouped_pooling=True")
+            
+            # Use a fixed-size depthwise convolution to capture local context.
+            # Adaptive pooling will handle varying sequence lengths later.
+            # padding=conv_kernel_size//2 maintains sequence length ("same" padding behavior roughly)
+            self.conv1d_grouped = nn.Conv1d(
+                in_channels=self.hidden_size,
+                out_channels=self.hidden_size,
+                kernel_size=conv_kernel_size,
+                stride=1,
+                padding=conv_kernel_size // 2, 
+                groups=self.hidden_size,  # Depthwise: independent per embedding dimension
+                bias=True
+            )
 
     def set_training_mode(self, mode='pooling_only'):
         """
-        Set training mode for different components.
-        
-        Args:
-            mode: 'pooling_only' (default) - only train pooling layers
-                  'full' - train transformer + pooling (not recommended for large models)
-                  'inference' - all in eval mode
+        Helper to set training states for fine-tuning.
         """
         if mode == 'pooling_only':
-            self.model.eval()  # Freeze transformer
-            self.train()  # Enable training for pooling layers
+            self.model.eval() # Freeze HF Transformer backbone
+            self.train()      # Unfreeze wrappers internal parameters (pooling weights)
+            # Explicitly turn off grads for base model weights
+            for param in self.model.parameters():
+                param.requires_grad = False
         elif mode == 'full':
-            self.model.train()  # Unfreeze transformer
+            self.model.train() # Unfreeze everything, enable dropout in HF model
             self.train()
+            for param in self.model.parameters():
+                param.requires_grad = True
         elif mode == 'inference':
             self.model.eval()
             self.eval()
         else:
-            raise ValueError(f"Unknown mode: {mode}. Use 'pooling_only', 'full', or 'inference'")
-    
-    # ----------------------------- 
-    # Standard single embedding
-    # ----------------------------- 
-    def encode(self, texts, max_length=512, pooling="mean"):
+            raise ValueError(f"Unknown mode: {mode}")
+
+    def _get_token_embeddings(self, texts, max_length=None):
+        """Helper to run tokenizer and base transformer."""
+        max_len = max_length or self.max_seq_length
         if isinstance(texts, str):
             texts = [texts]
-        
+            
         inputs = self.tokenizer(
-            texts,
-            return_tensors="pt",
-            padding=True,
-            truncation=True,
-            max_length=max_length
+            texts, return_tensors="pt", padding=True, truncation=True,
+            max_length=max_len
         ).to(self.device)
+
+        # The model's current training state (set by set_training_mode) determines gradient flow.
+        outputs = self.model(**inputs)
         
-        with torch.no_grad():
-            outputs = self.model(**inputs)
+        token_embeddings = outputs.last_hidden_state # (B, T, H)
+        attention_mask = inputs["attention_mask"]    # (B, T)
+        return token_embeddings, attention_mask
+
+    # -----------------------------
+    # Single Embedding Methods
+    # -----------------------------
+    def encode(self, texts, max_length=None, pooling="mean"):
+        """
+        Returns single embedding per text: (B, H)
+        Pooling options: 'mean', 'max', 'cls', 'learnable_attention'
+        """
+        token_embeddings, attention_mask = self._get_token_embeddings(texts, max_length)
+
+        if pooling == "learnable_attention":
+            if not self.use_learnable_single_pooling:
+                 raise ValueError("Initialize with use_learnable_single_pooling=True to use this method.")
+            return self._learnable_attention_pooling(token_embeddings, attention_mask)
         
-        token_embeddings = outputs.last_hidden_state  # (B, T, H)
-        attention_mask = inputs["attention_mask"]  # (B, T)
-        
-        if pooling == "mean":
+        elif pooling == "mean":
             return self._mean_pooling(token_embeddings, attention_mask)
         elif pooling == "max":
             return self._max_pooling(token_embeddings, attention_mask)
@@ -106,196 +125,133 @@ class TransformerWrapper(nn.Module):
         else:
             raise ValueError(f"Unknown pooling method: {pooling}")
 
-    # ----------------------------- 
-    # Grouped embeddings (trainable or conv)
-    # ----------------------------- 
-    def encode_grouped(self, texts, n_groups=None, pooling="mean", training=False):
+    def _learnable_attention_pooling(self, token_embeddings, attention_mask):
+        """Attention-based pooling inspired by BERT's pooler but with learnable query."""
+        # Project token embeddings: (B, T, H) -> (B, T, H)
+        projected = self.attention_proj(token_embeddings)
+        
+        # Compute attention scores using learnable query: (B, T, H) x (1, H, 1) -> (B, T, 1)
+        scores = torch.matmul(projected, self.attention_query.transpose(1, 2))
+        scores = scores.squeeze(-1) # (B, T)
+        
+        # Mask padding tokens before softmax
+        mask_value = -1e9 if scores.dtype == torch.float32 else -1e4
+        scores = scores.masked_fill(attention_mask == 0, mask_value)
+        
+        # Softmax to get weights: (B, T) -> (B, T, 1)
+        weights = F.softmax(scores, dim=-1).unsqueeze(-1)
+        
+        # Weighted sum: (B, H)
+        pooled = torch.sum(token_embeddings * weights, dim=1)
+        return pooled
+
+    # -----------------------------
+    # Grouped Embedding Methods
+    # -----------------------------
+    def encode_grouped(self, texts, n_groups=None, pooling="mean"):
         """
         Returns embeddings: (B, n_groups, H)
-        Supports:
-        - standard trainable weighted pooling
-        - Conv1D grouped pooling (if use_conv_pooling=True, mask-aware)
-        
-        Args:
-            texts: input text(s)
-            n_groups: number of groups (if None, uses self.n_groups from __init__)
-            pooling: pooling method ('mean' or 'max')
-            training: whether in training mode (for trainable pooling)
+        If use_conv_grouped_pooling=True in init, uses Conv1D+AdaptiveAvgPool (recommended).
+        Otherwise, splits sequence into chunks and applies standard pooling.
         """
-        if isinstance(texts, str):
-            texts = [texts]
+        target_n_groups = n_groups or self.n_groups
+        if target_n_groups is None:
+             raise ValueError("n_groups must be provided either in init or call.")
+
+        token_embeddings, attention_mask = self._get_token_embeddings(texts)
         
-        # Use n_groups from init if not provided
-        if n_groups is None:
-            n_groups = self.n_groups
-        
-        if n_groups is None:
-            raise ValueError("n_groups must be specified either in __init__ or in encode_grouped()")
-        
-        inputs = self.tokenizer(
-            texts,
-            return_tensors="pt",
-            padding=True,
-            truncation=True,
-            max_length=self.max_seq_length
-        ).to(self.device)
-        
-        # Always disable gradients for the transformer model
-        with torch.no_grad():
-            outputs = self.model(**inputs)
-        
-        token_embeddings = outputs.last_hidden_state  # (B, T, H)
-        attention_mask = inputs["attention_mask"].unsqueeze(-1).float()  # (B, T, 1)
-        
+        if self.use_conv_grouped_pooling:
+            return self._encode_grouped_conv(token_embeddings, attention_mask, target_n_groups)
+        else:
+            return self._encode_grouped_split(token_embeddings, attention_mask, target_n_groups, pooling)
+
+    def _encode_grouped_conv(self, token_embeddings, attention_mask, n_groups):
+        """
+        Robust implementation of convolution pooling for varying sequence lengths.
+        Uses fixed Conv1d -> Re-masking -> Adaptive Pooling -> Normalization.
+        """
         B, T, H = token_embeddings.shape
         
-        # Enable gradients for pooling operations if in training mode
-        if training:
-            token_embeddings = token_embeddings.detach().requires_grad_(True)
+        # 1. Prepare masks
+        mask_expanded = attention_mask.unsqueeze(-1).float() # (B, T, 1)
+        mask_channels_last = mask_expanded.transpose(1, 2)   # (B, 1, T)
         
-        # ----------------------------- 
-        # Mask-aware depthwise Conv1D pooling (dynamic)
-        # ----------------------------- 
-        if self.use_conv_pooling:
-            # Calculate padding if needed to make T divisible by n_groups
-            remainder = T % n_groups
-            if remainder > 0:
-                pad_total = n_groups - remainder
-                pad_left = pad_total // 2
-                pad_right = pad_total - pad_left
-                
-                # Pad token embeddings and mask (already on correct device)
-                token_embeddings = F.pad(token_embeddings, (0, 0, pad_left, pad_right), value=0)
-                attention_mask = F.pad(attention_mask, (0, 0, pad_left, pad_right), value=0)
-                
-                T = token_embeddings.size(1)  # Update T after padding
-            
-            # Calculate kernel and stride based on actual sequence length
-            kernel_size = T // n_groups
-            stride = kernel_size // 2 if self.overlap_pooling else kernel_size
-            
-            # Initialize or verify depthwise conv weights match current kernel size
-            if self.conv_weights is None or self.conv_weights.size(2) != kernel_size:
-                # Initialize learnable depthwise conv weights for this kernel size
-                # Shape: (hidden_size, 1, kernel_size) for depthwise convolution
-                # Each output channel only looks at its corresponding input channel
-                self.conv_weights = nn.Parameter(
-                    torch.randn(H, 1, kernel_size, device=self.device) / (kernel_size ** 0.5)
-                )
-                self.conv_bias = nn.Parameter(torch.zeros(H, device=self.device))
-                # Register parameters properly
-                self.register_parameter('_conv_weights', self.conv_weights)
-                self.register_parameter('_conv_bias', self.conv_bias)
-            
-            # Zero out padding tokens before convolution
-            token_embeddings = token_embeddings * attention_mask
-            
-            # Apply dynamic depthwise Conv1D using F.conv1d
-            # groups=H means each channel is convolved independently
-            x = token_embeddings.transpose(1, 2)  # (B, H, T)
-            conv_out = F.conv1d(
-                x, 
-                weight=self.conv_weights, 
-                bias=self.conv_bias,
-                stride=stride,
-                padding=0,
-                groups=H  # Depthwise: each embedding dimension pools independently
-            )  # (B, H, n_groups) or (B, H, 2*n_groups-1) if overlapping
-            
-            conv_out = conv_out.transpose(1, 2)  # (B, n_groups, H) or (B, 2*n_groups-1, H)
-            
-            # Compute mask sum for each window to normalize properly
-            mask_transposed = attention_mask.transpose(1, 2)  # (B, 1, T)
-            mask_sum = F.avg_pool1d(
-                mask_transposed, 
-                kernel_size=kernel_size, 
-                stride=stride
-            ) * kernel_size  # (B, 1, n_groups_actual) - sum of valid tokens per window
-            
-            # Normalize by actual number of valid tokens in each window
-            mask_sum = mask_sum.transpose(1, 2)  # (B, n_groups_actual, 1)
-            conv_out = conv_out / torch.clamp(mask_sum, min=1e-9)
-            
-            # If overlapping, we may have more outputs than n_groups
-            # Apply adaptive pooling to get exactly n_groups
-            if conv_out.size(1) != n_groups:
-                # (B, n_groups_actual, H) -> (B, H, n_groups_actual) -> (B, H, n_groups)
-                conv_out = F.adaptive_avg_pool1d(
-                    conv_out.transpose(1, 2), 
-                    n_groups
-                ).transpose(1, 2)
-            
-            return conv_out  # (B, n_groups, H)
+        # 2. Initial masking of input embeddings
+        masked_embeddings = token_embeddings * mask_expanded
         
-        # ----------------------------- 
-        # Original grouped pooling with even splits
-        # ----------------------------- 
-        # Create more even groups
-        base_group_size = T // n_groups
+        # 3. Apply Conv1d (B, Channels, Length)
+        x = masked_embeddings.transpose(1, 2) # (B, H, T)
+        features = self.conv1d_grouped(x)     # (B, H, T) due to padding
+        
+        # 4. Re-masking (CRITICAL FIX 1)
+        # Ensure padding positions are zeroed out again after convolution
+        features = features * mask_channels_last
+
+        # 5. Adaptive Pooling
+        # (B, H, T) -> (B, H, n_groups)
+        # This averages whatever is in the window, including zeros from padding.
+        pooled_sum = F.adaptive_avg_pool1d(features, output_size=n_groups)
+        
+        # 6. Normalization (CRITICAL FIX 2)
+        # Calculate the density of valid tokens in each adaptive pool window.
+        # If a window covers 50% valid tokens, the mask density will be 0.5.
+        mask_density = F.adaptive_avg_pool1d(mask_channels_last, output_size=n_groups) # (B, 1, n_groups)
+        
+        # Divide by density to get the true average of valid tokens.
+        # Clamp to avoid division by zero for completely empty segments.
+        pooled_normalized = pooled_sum / torch.clamp(mask_density, min=1e-9)
+        
+        # 7. Return to (B, n_groups, H)
+        return pooled_normalized.transpose(1, 2)
+
+    def _encode_grouped_split(self, token_embeddings, attention_mask, n_groups, pooling):
+        """Splits sequence into roughly equal chunks and applies mean/max pooling."""
+        B, T, H = token_embeddings.shape
+        
+        # Calculate split points
+        base_size = T // n_groups
         remainder = T % n_groups
-        
-        # Distribute remainder across first groups
-        group_sizes = [base_group_size + (1 if i < remainder else 0) for i in range(n_groups)]
-        
-        starts = []
-        ends = []
-        cumsum = 0
-        for size in group_sizes:
-            starts.append(cumsum)
-            cumsum += size
-            ends.append(cumsum)
+        sizes = [base_size + (1 if i < remainder else 0) for i in range(n_groups)]
         
         grouped_embeddings = []
-        
-        for start, end in zip(starts, ends):
-            group_tokens = token_embeddings[:, start:end, :]  # (B, group_len, H)
-            group_mask = attention_mask[:, start:end, :]  # (B, group_len, 1)
+        start_idx = 0
+        for size in sizes:
+            end_idx = start_idx + size
+            if size == 0: 
+                # Handle edge case where T < n_groups. 
+                # Must append a tensor of shape (B, 1, H) to cat later.
+                grouped_embeddings.append(torch.zeros(B, 1, H, device=self.device))
+                continue
+                
+            group_tokens = token_embeddings[:, start_idx:end_idx, :]
+            group_mask = attention_mask[:, start_idx:end_idx]
             
-            # Trainable weighted pooling
-            if self.use_trainable_pooling:
-                group_len = group_tokens.size(1)
-                
-                # Lazy initialization of pool weights
-                if self.pool_weights is None or self.pool_weights.size(1) != group_len:
-                    # Initialize as parameter with proper device placement
-                    self.pool_weights = nn.Parameter(
-                        torch.ones(1, group_len, 1, device=self.device, dtype=token_embeddings.dtype)
-                    )
-                    # Register it properly
-                    self.register_parameter('_pool_weights', self.pool_weights)
-                
-                weights = torch.softmax(self.pool_weights, dim=1)
-                pooled = torch.sum(group_tokens * weights * group_mask, dim=1) / torch.clamp(
-                    group_mask.sum(dim=1), min=1e-9
-                )
+            if pooling == "mean":
+                pooled = self._mean_pooling(group_tokens, group_mask) # (B, H)
+            elif pooling == "max":
+                pooled = self._max_pooling(group_tokens, group_mask)  # (B, H)
             else:
-                # Standard pooling
-                if pooling == "mean":
-                    pooled = torch.sum(group_tokens * group_mask, dim=1) / torch.clamp(
-                        group_mask.sum(dim=1), min=1e-9
-                    )
-                elif pooling == "max":
-                    masked_tokens = group_tokens.masked_fill(group_mask == 0, -1e9)
-                    pooled = torch.max(masked_tokens, dim=1).values
-                else:
-                    raise ValueError(f"Unknown pooling method: {pooling}")
+                raise ValueError(f"Unknown pooling: {pooling}")
+                
+            grouped_embeddings.append(pooled.unsqueeze(1)) # (B, 1, H)
+            start_idx = end_idx
             
-            grouped_embeddings.append(pooled.unsqueeze(1))
-        
-        return torch.cat(grouped_embeddings, dim=1)  # (B, n_groups, H)
+        return torch.cat(grouped_embeddings, dim=1) # (B, n_groups, H)
 
-    # ----------------------------- 
-    # Pooling helpers
-    # ----------------------------- 
+    # -----------------------------
+    # Static Pooling Helpers
+    # -----------------------------
     @staticmethod
     def _mean_pooling(token_embeddings, attention_mask):
         mask = attention_mask.unsqueeze(-1).float()
         summed = torch.sum(token_embeddings * mask, dim=1)
-        counts = torch.clamp(mask.sum(dim=1), min=1e-9)
+        # Clamp to avoid division by zero for completely padded sequences
+        counts = torch.clamp(mask.sum(dim=1), min=1e-9) 
         return summed / counts
     
     @staticmethod
     def _max_pooling(token_embeddings, attention_mask):
         mask = attention_mask.unsqueeze(-1).bool()
+        # Fill padding with very small number before max
         masked_tokens = token_embeddings.masked_fill(~mask, -1e9)
         return torch.max(masked_tokens, dim=1).values
