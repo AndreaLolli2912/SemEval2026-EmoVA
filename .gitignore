@@ -18,6 +18,7 @@ __pycache__/
 # 2. VS Code & Jupyter
 # -----------------------------------------------------------------------------
 .vscode/
+.idea/
 
 .ipynb_checkpoints/
 # Jupyter config
