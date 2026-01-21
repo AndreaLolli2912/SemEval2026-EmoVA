@@ -3,14 +3,19 @@ import torch
 import numpy as np
 import pandas as pd
 from torch.utils.data import Dataset
-from transformers import PreTrainedTokenizer
 from typing import Dict, List, Any
+
+import pandas as pd
+import torch
+from torch.utils.data import Dataset, DataLoader
+import numpy as np
+from transformers import AutoTokenizer
 
 class EcologicalDataset(Dataset):
     def __init__(
         self, 
         df: pd.DataFrame, 
-        tokenizer: PreTrainedTokenizer, 
+        tokenizer, 
         vad_lexicon: Dict[str, List[float]], 
         max_len: int = 512
     ):
