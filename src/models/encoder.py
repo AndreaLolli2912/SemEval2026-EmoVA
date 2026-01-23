@@ -81,7 +81,7 @@ class TransformerEncoder(nn.Module):
             input_ids=input_ids,
             attention_mask=attention_mask
         ).last_hidden_state  # [B, T, H]
-        
+        print("tokens.shape", tokens.shape)
         if self.n_groups is not None:
             return self._pool_grouped(tokens, attention_mask)
         else:

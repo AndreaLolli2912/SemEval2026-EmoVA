@@ -80,6 +80,7 @@ class AffectModel(nn.Module):
         mask = seq_mask.bool()
         
         # 1. Encode valid texts only
+        print("input_ids.shape", input_ids.shape)
         emb_flat = self.encoder(input_ids[mask], attention_mask[mask])
         
         # 2. Reconstruct padded tensor
