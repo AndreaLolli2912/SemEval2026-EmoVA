@@ -99,5 +99,3 @@ class BLSTMWithAttention(nn.Module):
         prediction = self.fc(out)
         
         return prediction, next_state, attention_weight if self.use_attention else None
-        
-        
