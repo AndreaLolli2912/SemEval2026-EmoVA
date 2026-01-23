@@ -1,127 +1,75 @@
-"""Dataloader collate function entry point"""
 import torch
 
 def create_collate_fn(tokenizer_wrapper, pad_value=0.0):
-    """
-    Factory function to create a collate function with a specific tokenizer.
-    
-    Args:
-        tokenizer_wrapper: TokenizerWrapper instance
-        pad_value: Value to use for padding valence/arousal (default: 0.0)
-    
-    Returns:
-        collate_fn: Function to use with DataLoader
-    """
-    
+
     def collate_fn(batch):
-        """
-        Collate function that:
-        1. Tokenizes all texts in the batch
-        2. Pads sequences to max length in batch
-        3. Creates attention masks for sequences
-        
-        Args:
-            batch: List of items from EmoVADataset
-        
-        Returns:
-            Dictionary with batched and padded data ready for model
-        """
-        # Get max sequence length in this batch
-        max_seq_len = max(item['seq_length'] for item in batch) # seq_length = Number of documents
         batch_size = len(batch)
-        
-        # Initialize lists for batch data
-        batch_user_ids = []
-        batch_texts_tokenized = []
-        batch_valences = []
-        batch_arousals = []
-        batch_seq_lengths = []
-        batch_attention_masks = []
-        batch_timestamps = []
-        batch_text_ids = []
-        
+        seq_lengths = [item['seq_length'] for item in batch]
+        max_seq_len = max(seq_lengths)
+
+        # Flatten texts for tokenization
+        flat_texts = []
+        text_counts = []  # how many texts per user
+
         for item in batch:
-            # Understand how many texts are missing
-            seq_len = item['seq_length']
-            pad_len = max_seq_len - seq_len
-            
-            # User ID
-            batch_user_ids.append(item['user_id'])
-            
-            # Tokenize texts using TokenizerWrapper
             texts = item['texts']
-            tokenized = tokenizer_wrapper(texts)
-            # tokenized is a BatchEncoding with:
-            #   - input_ids: [seq_len, max_text_length] <- now always max_text_length!
-            #   - attention_mask: [seq_len, max_text_length]
-            
-            # Pad sequence dimension if needed
-            if pad_len > 0:
-                max_text_length = tokenizer_wrapper.max_len
-                
-                # Create padding tensors for sequences
-                pad_input_ids = torch.zeros(pad_len, max_text_length, dtype=torch.long)
-                pad_attention_mask = torch.zeros(pad_len, max_text_length, dtype=torch.long)
-                
-                # Concatenate real + padding
-                tokenized_input_ids = torch.cat([tokenized['input_ids'], pad_input_ids], dim=0)
-                tokenized_attention_mask = torch.cat([tokenized['attention_mask'], pad_attention_mask], dim=0)
-            else:
-                tokenized_input_ids = tokenized['input_ids']
-                tokenized_attention_mask = tokenized['attention_mask']
-            
-            batch_texts_tokenized.append({
-                'input_ids': tokenized_input_ids,
-                'attention_mask': tokenized_attention_mask
-            })
-            
-            # Pad valences and arousals
-            padded_valences = torch.cat([
-                item['valences'],
-                torch.full((pad_len,), pad_value, dtype=torch.float32)
-            ])
-            padded_arousals = torch.cat([
-                item['arousals'],
-                torch.full((pad_len,), pad_value, dtype=torch.float32)
-            ])
-            
-            batch_valences.append(padded_valences)
-            batch_arousals.append(padded_arousals)
-            
-            # Create sequence attention mask: 1 for real, 0 for padding
-            seq_attention_mask = torch.cat([
-                torch.ones(seq_len, dtype=torch.bool),
-                torch.zeros(pad_len, dtype=torch.bool)
-            ])
-            batch_attention_masks.append(seq_attention_mask)
-            
-            # Sequence length
-            batch_seq_lengths.append(seq_len)
-            
-            # Timestamps and text_ids (keep as lists)
-            batch_timestamps.append(item['timestamps'])
-            batch_text_ids.append(item['text_ids'])
+            flat_texts.extend(texts)
+            text_counts.append(len(texts))
+
+        # Single tokenizer call
+        tokenized = tokenizer_wrapper(flat_texts)
+        input_ids_flat = tokenized['input_ids']
+        attention_mask_flat = tokenized['attention_mask']
+
+        max_text_len = input_ids_flat.size(1)
+
         
-        # Stack tokenized texts
-        input_ids = torch.stack([item['input_ids'] for item in batch_texts_tokenized])
-        # Shape: [batch_size, max_seq_len, max_text_length]
-        
-        attention_mask_text = torch.stack([item['attention_mask'] for item in batch_texts_tokenized])
-        # Shape: [batch_size, max_seq_len, max_text_length]
-        
-        # Create final batch dictionary
-        batch_dict = {
-            'user_ids': batch_user_ids,  # List of user IDs
-            'input_ids': input_ids,  # [batch_size, max_seq_len, max_text_length]
-            'attention_mask': attention_mask_text,  # [batch_size, max_seq_len, max_text_length]
-            'valences': torch.stack(batch_valences),  # [batch_size, max_seq_len]
-            'arousals': torch.stack(batch_arousals),  # [batch_size, max_seq_len]
-            'seq_attention_mask': torch.stack(batch_attention_masks),  # [batch_size, max_seq_len]
-            'seq_lengths': torch.tensor(batch_seq_lengths, dtype=torch.long),  # [batch_size]
-            'timestamps': batch_timestamps,  # List of lists
-            'text_ids': batch_text_ids  # List of lists
+        # Allocate padded tensors
+        input_ids = torch.zeros(
+            batch_size, max_seq_len, max_text_len, dtype=torch.long
+        )
+        attention_mask_text = torch.zeros_like(input_ids)
+
+        valences = torch.full(
+            (batch_size, max_seq_len), pad_value, dtype=torch.float32
+        )
+        arousals = torch.full(
+            (batch_size, max_seq_len), pad_value, dtype=torch.float32
+        )
+
+        seq_attention_mask = torch.zeros(
+            batch_size, max_seq_len, dtype=torch.bool
+        )
+
+        # Fill tensors
+        cursor = 0
+        for i, item in enumerate(batch):
+            seq_len = item['seq_length']
+            count = text_counts[i]
+
+            input_ids[i, :seq_len] = input_ids_flat[cursor:cursor + count]
+            attention_mask_text[i, :seq_len] = attention_mask_flat[cursor:cursor + count]
+
+            valences[i, :seq_len] = item['valences']
+            arousals[i, :seq_len] = item['arousals']
+
+            seq_attention_mask[i, :seq_len] = True
+
+            cursor += count
+
+        # Assemble batch
+        return {
+            'user_ids': [item['user_id'] for item in batch],
+            'text_ids': [item['text_ids'] for item in batch],
+            'input_ids': input_ids,  # [B, T, L]
+            'attention_mask': attention_mask_text,  # [B, T, L]
+            'timestamps': [item['timestamps'] for item in batch],
+            'collection_phases': [item['collection_phases'] for item in batch],
+            'is_words': [item['is_words'] for item in batch],
+            'valences': valences,  # [B, T]
+            'arousals': arousals,  # [B, T]
+            'seq_attention_mask': seq_attention_mask,  # [B, T]
+            'seq_lengths': torch.tensor(seq_lengths, dtype=torch.long),   
         }
-        
-        return batch_dict
-    
+
     return collate_fn
