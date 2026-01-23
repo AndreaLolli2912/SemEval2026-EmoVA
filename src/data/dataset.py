@@ -22,35 +22,27 @@ class EmoVADataset(Dataset):
 
         self.df = df
 
-        # Precompute user -> index ranges
-        self.user_groups = []
+        self.user_data = []
         for user_id, group in df.groupby('user_id', sort=False):
-            self.user_groups.append({
+            self.user_data.append({
                 'user_id': user_id,
-                'indices': group.index.to_numpy(),
-                'seq_length': len(group)
+                'text_ids': group['text_id'].tolist(),
+                'texts': group['text'].tolist(),
+                'timestamps': group['timestamp'].to_numpy(),
+                'collection_phases': group['collection_phase'].tolist(),
+                'is_words': group['is_words'].tolist(),
+                'valences': group['valence'].to_numpy(dtype=np.float32),
+                'arousals': group['arousal'].to_numpy(dtype=np.float32),
             })
 
     def __len__(self):
-        return len(self.user_groups)
+        return len(self.user_data)
 
     def __getitem__(self, idx):
-        meta = self.user_groups[idx]
-        idxs = meta['indices']
-        df = self.df.loc[idxs]
-
+        data = self.user_data[idx]
         return {
-            'user_id': meta['user_id'],
-            'text_ids': df['text_id'].tolist(),
-            'texts': df['text'].tolist(),
-            'timestamps': df['timestamp'].to_numpy(),
-            'collection_phases': df['collection_phase'].tolist(),
-            'is_words': df['is_words'].tolist(),
-            'valences': torch.from_numpy(
-                df['valence'].to_numpy(dtype=np.float32)
-            ).to(self.dtype),
-            'arousals': torch.from_numpy(
-                df['arousal'].to_numpy(dtype=np.float32)
-            ).to(self.dtype),
-            'seq_length': meta['seq_length']
+            **data,
+            'valences': torch.from_numpy(data['valences']).to(self.dtype),
+            'arousals': torch.from_numpy(data['arousals']).to(self.dtype),
+            'seq_length': len(data['texts'])
         }

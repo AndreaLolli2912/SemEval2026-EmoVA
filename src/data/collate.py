@@ -37,9 +37,7 @@ def create_collate_fn(tokenizer_wrapper, pad_value=0.0):
             (batch_size, max_seq_len), pad_value, dtype=torch.float32
         )
 
-        seq_attention_mask = torch.zeros(
-            batch_size, max_seq_len, dtype=torch.bool
-        )
+        seq_attention_mask = torch.zeros(batch_size, max_seq_len, dtype=torch.long)
 
         # Fill tensors
         cursor = 0
