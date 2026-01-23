@@ -27,7 +27,7 @@ def create_collate_fn(tokenizer_wrapper, pad_value=0.0):
             Dictionary with batched and padded data ready for model
         """
         # Get max sequence length in this batch
-        max_seq_len = max(item['seq_length'] for item in batch)
+        max_seq_len = max(item['seq_length'] for item in batch) # seq_length = Number of documents
         batch_size = len(batch)
         
         # Initialize lists for batch data
@@ -41,6 +41,7 @@ def create_collate_fn(tokenizer_wrapper, pad_value=0.0):
         batch_text_ids = []
         
         for item in batch:
+            # Understand how many texts are missing
             seq_len = item['seq_length']
             pad_len = max_seq_len - seq_len
             
@@ -89,8 +90,8 @@ def create_collate_fn(tokenizer_wrapper, pad_value=0.0):
             
             # Create sequence attention mask: 1 for real, 0 for padding
             seq_attention_mask = torch.cat([
-                torch.ones(seq_len, dtype=torch.float32),
-                torch.zeros(pad_len, dtype=torch.float32)
+                torch.ones(seq_len, dtype=torch.bool),
+                torch.zeros(pad_len, dtype=torch.bool)
             ])
             batch_attention_masks.append(seq_attention_mask)
             
