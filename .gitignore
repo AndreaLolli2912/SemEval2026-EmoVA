@@ -44,7 +44,6 @@ __pycache__/
 # 4. Model Weights & Large Artifacts
 # -----------------------------------------------------------------------------
 # NLP models are too large for Git. Store them in S3/HuggingFace Hub instead.
-models/
 saved_models/
 checkpoints/
 
