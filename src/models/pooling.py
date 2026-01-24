@@ -3,20 +3,6 @@ Building Blocks for Efficient Attention Pooling
 
 Based on "Set Transformer" (Lee et al., 2019)
 Paper: https://arxiv.org/abs/1810.00825
-
-Components:
-    - MAB: Multihead Attention Block (basic building block)
-    - ISAB: Induced Set Attention Block (efficient self-attention)
-    - PMA: Pooling by Multihead Attention (compress to fixed size)
-
-Typical usage:
-    tokens [B, T, H] → ISAB → [B, T, H] → PMA → [B, K, H]
-    
-    Where:
-        B = batch size
-        T = number of tokens (e.g., 512)
-        H = hidden dimension (e.g., 768)
-        K = number of output vectors (e.g., 4)
 """
 
 import torch
@@ -27,44 +13,22 @@ class MAB(nn.Module):
     """
     Multihead Attention Block.
     
-    Basic building block for ISAB and PMA. Performs:
-        1. Cross-attention: Q attends to KV
-        2. Residual connection + LayerNorm
-        3. Feedforward network
-        4. Residual connection + LayerNorm
-    
-    Args:
-        hidden_size: Embedding dimension (H)
-        n_heads: Number of attention heads
-        dropout: Dropout probability
-    
-    Input:
-        Q: [B, N, H] - queries (what's asking)
-        KV: [B, M, H] - keys/values (what's being attended to)
-        mask: [B, M] - optional, True for positions to ignore
-    
-    Output:
-        [B, N, H] - same shape as Q
-    
-    Example:
-        >>> mab = MAB(hidden_size=768, n_heads=8)
-        >>> Q = torch.randn(2, 4, 768)    # 4 queries
-        >>> KV = torch.randn(2, 512, 768) # 512 tokens
-        >>> out = mab(Q, KV)              # [2, 4, 768]
+    Basic building block for ISAB and PMA.
     """
     
-    def __init__(self, hidden_size, n_heads, dropout=0.1):
+    def __init__(self, hidden_size, n_heads, dropout=0.1, verbose=False):
         super().__init__()
         
-        # Attention layer
+        self.verbose = verbose
+        self.hidden_size = hidden_size
+        self.n_heads = n_heads
+        
         self.attn = nn.MultiheadAttention(
-            hidden_size, n_heads, 
-            dropout=dropout, 
+            hidden_size, n_heads,
+            dropout=dropout,
             batch_first=True
         )
         self.norm1 = nn.LayerNorm(hidden_size)
-        
-        # Feedforward network (expand then contract)
         self.ffn = nn.Sequential(
             nn.Linear(hidden_size, hidden_size * 4),
             nn.GELU(),
@@ -77,21 +41,27 @@ class MAB(nn.Module):
         """
         Args:
             Q: [B, N, H] - queries
-            KV: [B, M, H] - keys and values (same source)
-            mask: [B, M] - True = ignore this position
+            KV: [B, M, H] - keys and values
+            mask: [B, M] - True = ignore
         
         Returns:
-            [B, N, H] - output (same shape as Q)
+            [B, N, H]
         """
-        # Attention: Q asks, KV answers
-        # key_padding_mask: True means "ignore this token"
+        if self.verbose:
+            print(f"    [MAB] Q: {Q.shape}, KV: {KV.shape}", end="")
+            if mask is not None:
+                print(f", mask: {mask.shape} (ignoring {mask.sum().item()} positions)")
+            else:
+                print(" (no mask)")
+        
         attn_out, _ = self.attn(Q, KV, KV, key_padding_mask=mask)
-        
-        # Residual + Norm
         H = self.norm1(Q + attn_out)
+        out = self.norm2(H + self.ffn(H))
         
-        # FFN + Residual + Norm
-        return self.norm2(H + self.ffn(H))
+        if self.verbose:
+            print(f"    [MAB] Output: {out.shape}")
+        
+        return out
 
 
 class ISAB(nn.Module):
@@ -99,127 +69,104 @@ class ISAB(nn.Module):
     Induced Set Attention Block.
     
     Efficient self-attention using inducing points as bottleneck.
-    Instead of O(T²) complexity, achieves O(T·m) where m << T.
-    
-    How it works:
-        1. Inducing points gather info from all tokens (compress)
-        2. Tokens retrieve info from inducing points (broadcast)
-    
-    Result: Tokens become "aware" of each other through the bottleneck.
-    
-    Args:
-        hidden_size: Embedding dimension (H)
-        n_heads: Number of attention heads
-        n_inducing: Number of inducing points (m) - the bottleneck size
-        dropout: Dropout probability
-    
-    Input:
-        X: [B, T, H] - token embeddings
-        mask: [B, T] - optional, True for positions to ignore
-    
-    Output:
-        [B, T, H] - same shape as input, but enriched with global context
-    
-    Complexity:
-        Normal self-attention: O(T²) = O(512²) = 262,144
-        ISAB with m=32: O(T·m) = O(512·32) = 16,384 (16x cheaper)
-    
-    Example:
-        >>> isab = ISAB(hidden_size=768, n_heads=8, n_inducing=32)
-        >>> tokens = torch.randn(2, 512, 768)
-        >>> enriched = isab(tokens)  # [2, 512, 768]
+    Complexity: O(T·m) instead of O(T²)
     """
     
-    def __init__(self, hidden_size, n_heads, n_inducing=32, dropout=0.1):
+    def __init__(self, hidden_size, n_heads, n_inducing=32, dropout=0.1, verbose=False):
         super().__init__()
         
-        # Learned inducing points (the bottleneck)
-        # These learn to specialize: some focus on sentiment, some on topics, etc.
-        self.inducing = nn.Parameter(torch.randn(n_inducing, hidden_size))
+        self.verbose = verbose
+        self.n_inducing = n_inducing
         
-        # Two MAB blocks for the two steps
-        self.mab1 = MAB(hidden_size, n_heads, dropout)  # compress
-        self.mab2 = MAB(hidden_size, n_heads, dropout)  # broadcast
+        self.inducing = nn.Parameter(torch.randn(n_inducing, hidden_size))
+        self.mab1 = MAB(hidden_size, n_heads, dropout, verbose=verbose)
+        self.mab2 = MAB(hidden_size, n_heads, dropout, verbose=verbose)
+        
+        if self.verbose:
+            print(f"[ISAB] Initialized with {n_inducing} inducing points")
     
     def forward(self, X, mask=None):
         """
         Args:
             X: [B, T, H] - input tokens
-            mask: [B, T] - True = ignore this token
+            mask: [B, T] - True = ignore
         
         Returns:
-            [B, T, H] - enriched tokens (same shape as input)
+            [B, T, H] - enriched tokens
         """
         B = X.size(0)
         
-        # Expand inducing points for batch: [m, H] → [B, m, H]
+        if self.verbose:
+            print(f"\n  [ISAB] Forward pass")
+            print(f"    Input X: {X.shape}")
+        
+        # Expand inducing points for batch
         I = self.inducing.unsqueeze(0).expand(B, -1, -1)
         
+        if self.verbose:
+            print(f"    Inducing points expanded: {I.shape}")
+            print(f"    Step 1: Inducing points gather from tokens")
+        
         # Step 1: Inducing points gather from tokens
-        # [B, m, H] attends to [B, T, H] → [B, m, H]
         H = self.mab1(Q=I, KV=X, mask=mask)
         
-        # Step 2: Tokens retrieve from compressed representation
-        # [B, T, H] attends to [B, m, H] → [B, T, H]
-        # Note: no mask here because H has no padding
-        return self.mab2(Q=X, KV=H)
+        if self.verbose:
+            print(f"    Compressed H: {H.shape}")
+            print(f"    Step 2: Tokens retrieve from compressed")
+        
+        # Step 2: Tokens retrieve from compressed (no mask - H has no padding)
+        out = self.mab2(Q=X, KV=H)
+        
+        if self.verbose:
+            print(f"    Output: {out.shape}")
+        
+        return out
 
 
 class PMA(nn.Module):
     """
     Pooling by Multihead Attention.
     
-    Compresses variable-length input to fixed-size output using learned seeds.
-    Each seed learns to focus on different aspects of the input.
-    
-    How it works:
-        - K seed vectors (learned) attend to T tokens
-        - Each seed produces one output vector
-        - Result: T tokens → K summary vectors
-    
-    Args:
-        hidden_size: Embedding dimension (H)
-        n_heads: Number of attention heads
-        n_seeds: Number of output vectors (K)
-        dropout: Dropout probability
-    
-    Input:
-        X: [B, T, H] - token embeddings
-        mask: [B, T] - optional, True for positions to ignore
-    
-    Output:
-        [B, K, H] - K summary vectors
-    
-    Example:
-        >>> pma = PMA(hidden_size=768, n_heads=8, n_seeds=4)
-        >>> tokens = torch.randn(2, 512, 768)
-        >>> pooled = pma(tokens)  # [2, 4, 768]
+    Compresses variable-length input to fixed-size output.
     """
     
-    def __init__(self, hidden_size, n_heads, n_seeds=1, dropout=0.1):
+    def __init__(self, hidden_size, n_heads, n_seeds=1, dropout=0.1, verbose=False):
         super().__init__()
         
-        # Learned seed vectors
-        # Each seed learns to extract different information
-        self.seeds = nn.Parameter(torch.randn(n_seeds, hidden_size))
+        self.verbose = verbose
+        self.n_seeds = n_seeds
         
-        # Single MAB for pooling
-        self.mab = MAB(hidden_size, n_heads, dropout)
+        self.seeds = nn.Parameter(torch.randn(n_seeds, hidden_size))
+        self.mab = MAB(hidden_size, n_heads, dropout, verbose=verbose)
+        
+        if self.verbose:
+            print(f"[PMA] Initialized with {n_seeds} seed vectors")
     
     def forward(self, X, mask=None):
         """
         Args:
             X: [B, T, H] - input tokens
-            mask: [B, T] - True = ignore this token
+            mask: [B, T] - True = ignore
         
         Returns:
-            [B, K, H] - K summary vectors (K = n_seeds)
+            [B, K, H] - K summary vectors
         """
         B = X.size(0)
         
-        # Expand seeds for batch: [K, H] → [B, K, H]
+        if self.verbose:
+            print(f"\n  [PMA] Forward pass")
+            print(f"    Input X: {X.shape}")
+        
+        # Expand seeds for batch
         S = self.seeds.unsqueeze(0).expand(B, -1, -1)
         
-        # Seeds attend to tokens
-        # [B, K, H] attends to [B, T, H] → [B, K, H]
-        return self.mab(Q=S, KV=X, mask=mask)
+        if self.verbose:
+            print(f"    Seeds expanded: {S.shape}")
+            print(f"    Seeds attend to tokens:")
+        
+        out = self.mab(Q=S, KV=X, mask=mask)
+        
+        if self.verbose:
+            print(f"    Output (pooled): {out.shape}")
+        
+        return out
