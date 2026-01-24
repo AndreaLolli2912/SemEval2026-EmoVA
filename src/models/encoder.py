@@ -12,23 +12,23 @@ class TransformerEncoder(nn.Module):
     
     Args:
         model_path: HuggingFace model path
-    
-    Input:
-        input_ids: [B, T]
-        attention_mask: [B, T]
-    
-    Output:
-        tokens: [B, T, H]
-        padding_mask: [B, T] (True = ignore, for use with PMA/ISAB)
+        verbose: If True, print shapes and flow information
     """
     
-    def __init__(self, model_path):
+    def __init__(self, model_path, verbose=False):
         super().__init__()
+        
+        self.verbose = verbose
         
         self.backbone = AutoModel.from_pretrained(model_path)
         self.hidden_size = self.backbone.config.hidden_size
         
         self._freeze_backbone()
+        
+        if self.verbose:
+            print(f"[TransformerEncoder] Loaded: {model_path}")
+            print(f"[TransformerEncoder] Hidden size: {self.hidden_size}")
+            print(f"[TransformerEncoder] Backbone frozen: True")
     
     def _freeze_backbone(self):
         for param in self.backbone.parameters():
@@ -39,6 +39,8 @@ class TransformerEncoder(nn.Module):
         """Override to keep backbone in eval mode."""
         super().train(mode)
         self.backbone.eval()
+        if self.verbose:
+            print(f"[TransformerEncoder] train({mode}) called, backbone forced to eval")
         return self
     
     def forward(self, input_ids, attention_mask):
@@ -48,9 +50,16 @@ class TransformerEncoder(nn.Module):
             attention_mask: [B, T] (1 = real, 0 = padding)
         
         Returns:
-            tokens: [B, T, H] - token embeddings (includes CLS at position 0)
+            tokens: [B, T, H] - token embeddings
             padding_mask: [B, T] - True = ignore (for PMA/ISAB)
         """
+        if self.verbose:
+            print(f"\n[TransformerEncoder] Forward pass")
+            print(f"  Input:")
+            print(f"    input_ids:      {input_ids.shape}")
+            print(f"    attention_mask: {attention_mask.shape}")
+            print(f"    real tokens:    {attention_mask.sum().item()} / {attention_mask.numel()}")
+        
         with torch.no_grad():
             tokens = self.backbone(
                 input_ids=input_ids,
@@ -58,6 +67,12 @@ class TransformerEncoder(nn.Module):
             ).last_hidden_state
         
         padding_mask = (attention_mask == 0)
+        
+        if self.verbose:
+            print(f"  Output:")
+            print(f"    tokens:       {tokens.shape}")
+            print(f"    padding_mask: {padding_mask.shape}")
+            print(f"    positions to ignore: {padding_mask.sum().item()}")
         
         return tokens, padding_mask
     
