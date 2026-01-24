@@ -16,12 +16,12 @@ class AffectModel(nn.Module):
     
     Args:
         model_path: HuggingFace model path
-        n_seeds: Number of PMA output vectors per document
-        n_inducing: Number of ISAB inducing points (None to skip ISAB)
+        pma_num_seeds: Number of PMA output vectors per document
+        isab_inducing_points: Number of ISAB inducing points (None to skip ISAB)
         n_heads: Number of attention heads for ISAB/PMA
-        lstm_hidden: LSTM hidden dimension
-        lstm_layers: Number of LSTM layers
-        bidirectional: Whether LSTM is bidirectional
+        lstm_hidden_dim: LSTM hidden dimension
+        lstm_num_layers: Number of LSTM layers
+        lstm_bidirectional: Whether LSTM is lstm_bidirectional
         dropout: Dropout probability
         constrain_arousal: Whether to constrain arousal to [0, 2]
         verbose: Print shape information during forward pass
@@ -32,13 +32,13 @@ class AffectModel(nn.Module):
         # Encoder params
         model_path,
         # Set attention params
-        n_seeds=4,
-        n_inducing=32,
+        pma_num_seeds=4,
+        isab_inducing_points=32,
         n_heads=8,
         # LSTM params
-        lstm_hidden=256,
-        lstm_layers=2,
-        bidirectional=True,
+        lstm_hidden_dim=256,
+        lstm_num_layers=2,
+        lstm_bidirectional=True,
         # Shared params
         dropout=0.3,
         # Head params
@@ -49,8 +49,8 @@ class AffectModel(nn.Module):
         super().__init__()
         
         self.verbose = verbose
-        self.n_seeds = n_seeds
-        self.n_inducing = n_inducing
+        self.pma_num_seeds = pma_num_seeds
+        self.isab_inducing_points = isab_inducing_points
         
         # 1. Transformer encoder (frozen)
         self.encoder = TransformerEncoder(
@@ -60,12 +60,12 @@ class AffectModel(nn.Module):
         
         hidden_size = self.encoder.hidden_size
         
-        # 2. ISAB (optional - skip if n_inducing is None)
-        if n_inducing is not None:
+        # 2. ISAB (optional - skip if isab_inducing_points is None)
+        if isab_inducing_points is not None:
             self.isab = ISAB(
                 hidden_size=hidden_size,
                 n_heads=n_heads,
-                n_inducing=n_inducing,
+                n_inducing=isab_inducing_points,
                 dropout=dropout,
                 verbose=verbose
             )
@@ -76,19 +76,19 @@ class AffectModel(nn.Module):
         self.pma = PMA(
             hidden_size=hidden_size,
             n_heads=n_heads,
-            n_seeds=n_seeds,
+            n_seeds=pma_num_seeds,
             dropout=dropout,
             verbose=verbose
         )
         
         # 4. LSTM encoder
-        lstm_input_dim = hidden_size * n_seeds
+        lstm_input_dim = hidden_size * pma_num_seeds
         
         self.lstm = LSTMEncoder(
             input_dim=lstm_input_dim,
-            hidden_dim=lstm_hidden,
-            num_layers=lstm_layers,
-            bidirectional=bidirectional,
+            hidden_dim=lstm_hidden_dim,
+            num_layers=lstm_num_layers,
+            bidirectional=lstm_bidirectional,
             dropout=dropout,
             verbose=verbose
         )
@@ -104,9 +104,9 @@ class AffectModel(nn.Module):
         if self.verbose:
             print(f"\n[AffectModel] Initialized")
             print(f"  Encoder: {model_path} (frozen)")
-            print(f"  ISAB: {n_inducing} inducing points" if n_inducing else "  ISAB: disabled")
-            print(f"  PMA: {n_seeds} seeds")
-            print(f"  LSTM: input={lstm_input_dim}, hidden={lstm_hidden}, layers={lstm_layers}, bidir={bidirectional}")
+            print(f"  ISAB: {isab_inducing_points} inducing points" if isab_inducing_points else "  ISAB: disabled")
+            print(f"  PMA: {pma_num_seeds} seeds")
+            print(f"  LSTM: input={lstm_input_dim}, hidden={lstm_hidden_dim}, layers={lstm_num_layers}, bidir={lstm_bidirectional}")
             print(f"  Head: output=2, constrain_output={constrain_output}\n")
     
     def forward(self, input_ids, attention_mask, seq_lengths, seq_mask):
@@ -155,7 +155,7 @@ class AffectModel(nn.Module):
                 print(f"    tokens (enriched): {tokens.shape}\n")
         
         # 4. PMA (pool to fixed size)
-        emb_flat = self.pma(tokens, padding_mask)  # [N_valid, n_seeds, H]
+        emb_flat = self.pma(tokens, padding_mask)  # [N_valid, pma_num_seeds, H]
         
         if self.verbose:
             print(f"\n  Step 4: PMA pooling")
@@ -167,7 +167,7 @@ class AffectModel(nn.Module):
             device=emb_flat.device, dtype=emb_flat.dtype
         )
         emb[mask] = emb_flat
-        emb = emb.view(B, S, -1)  # [B, S, n_seeds * H]
+        emb = emb.view(B, S, -1)  # [B, S, pma_num_seeds * H]
         
         if self.verbose:
             print(f"\n  Step 5: Reconstruct for LSTM")

@@ -1,9 +1,12 @@
 from .losses import masked_mse_loss, ccc_loss, combined_loss
 from .trainer import train_epoch
+from .utils import EarlyStopping, GradientClipper
 
 __all__ = [
     'masked_mse_loss',
     'ccc_loss',
     'combined_loss',
-    'train_epoch'
+    'train_epoch',
+    'EarlyStopping',
+    'GradientClipper'
 ]
