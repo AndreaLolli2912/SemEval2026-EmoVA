@@ -97,7 +97,8 @@ class AffectModel(nn.Module):
         self.head = PredictionHead(
             input_dim=self.lstm.output_dim,
             dropout=dropout,
-            constrain_arousal=constrain_arousal
+            constrain_arousal=constrain_arousal,
+            verbose=verbose
         )
         
         if self.verbose:
