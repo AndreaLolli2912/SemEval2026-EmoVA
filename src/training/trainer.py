@@ -13,128 +13,155 @@ from src.training.losses import masked_mse_loss
 from src.training.utils import EarlyStopping
 
 
-def train_epoch(model, dataloader, optimizer, device, config, clipper=None):
-    """
-    Train for one epoch.
-    
-    Args:
-        model: The model to train
-        dataloader: Training dataloader
-        optimizer: Optimizer
-        device: torch device
-        config: Config object with accumulation_steps
-        clipper: Optional GradientClipper
-    
-    Returns:
-        dict with 'loss', 'grad_norm', 'preds', 'targets'
-    """
+def train_epoch(
+    model,
+    dataloader,
+    optimizer,
+    device,
+    config,
+    clipper=None,
+    collect_preds=False,
+    max_collect_samples=5000,
+):
     model.train()
-    
+
     total_loss = 0.0
     total_samples = 0
-    all_preds = []
-    all_targets = []
-    
+
+    all_preds = [] if collect_preds else None
+    all_targets = [] if collect_preds else None
+    collected = 0
+
     optimizer.zero_grad()
-    
+
     pbar = tqdm(dataloader, desc="Training", leave=False)
     for step, batch in enumerate(pbar):
         input_ids = batch['input_ids'].to(device)
         attention_mask = batch['attention_mask'].to(device)
         seq_lengths = batch['seq_lengths'].to(device)
         seq_mask = batch['seq_attention_mask'].to(device)
-        
+
         valences = batch['valences'].to(device)
         arousals = batch['arousals'].to(device)
         targets = torch.stack([valences, arousals], dim=-1)
-        
+
         predictions = model(input_ids, attention_mask, seq_lengths, seq_mask)
-        
+
         loss = masked_mse_loss(predictions, targets, seq_mask)
         loss = loss / config.accumulation_steps
         loss.backward()
-        
+
         if (step + 1) % config.accumulation_steps == 0:
             if clipper:
                 clipper(model)
             optimizer.step()
             optimizer.zero_grad()
-        
+
         with torch.no_grad():
             mask = seq_mask.bool()
             num_valid = mask.sum().item()
+
             total_loss += loss.item() * config.accumulation_steps * num_valid
             total_samples += num_valid
-            
-            all_preds.append(predictions[mask].cpu())
-            all_targets.append(targets[mask].cpu())
-        
+
+            if collect_preds and collected < max_collect_samples:
+                preds_cpu = predictions[mask].detach().cpu()
+                targs_cpu = targets[mask].detach().cpu()
+
+                remaining = max_collect_samples - collected
+                all_preds.append(preds_cpu[:remaining])
+                all_targets.append(targs_cpu[:remaining])
+                collected += preds_cpu.size(0)
+
         pbar.set_postfix({'loss': loss.item() * config.accumulation_steps})
-    
-    # Handle leftover gradients
+
+        # 🔥 explicitly free GPU tensors
+        del predictions, targets, input_ids, attention_mask, seq_lengths, seq_mask
+
     if (step + 1) % config.accumulation_steps != 0:
         if clipper:
             clipper(model)
         optimizer.step()
         optimizer.zero_grad()
-    
-    return {
+
+    torch.cuda.empty_cache()
+
+    result = {
         'loss': total_loss / total_samples,
-        'grad_norm': np.mean(clipper.grad_norms[-len(dataloader):]) if clipper and clipper.grad_norms else 0.0,
-        'preds': torch.cat(all_preds, dim=0),
-        'targets': torch.cat(all_targets, dim=0),
+        'grad_norm': (
+            np.mean(clipper.grad_norms[-len(dataloader):])
+            if clipper and clipper.grad_norms
+            else 0.0
+        ),
     }
+
+    if collect_preds:
+        result['preds'] = torch.cat(all_preds, dim=0)
+        result['targets'] = torch.cat(all_targets, dim=0)
+
+    return result
+
 
 
 @torch.no_grad()
-def eval_epoch(model, dataloader, device):
-    """
-    Evaluate for one epoch.
-    
-    Args:
-        model: The model to evaluate
-        dataloader: Validation dataloader
-        device: torch device
-    
-    Returns:
-        dict with 'loss', 'preds', 'targets'
-    """
+def eval_epoch(
+    model,
+    dataloader,
+    device,
+    collect_preds=False,
+    max_collect_samples=10000,
+):
     model.eval()
-    
+
     total_loss = 0.0
     total_samples = 0
-    all_preds = []
-    all_targets = []
-    
+
+    all_preds = [] if collect_preds else None
+    all_targets = [] if collect_preds else None
+    collected = 0
+
     pbar = tqdm(dataloader, desc="Evaluating", leave=False)
     for batch in pbar:
         input_ids = batch['input_ids'].to(device)
         attention_mask = batch['attention_mask'].to(device)
         seq_lengths = batch['seq_lengths'].to(device)
         seq_mask = batch['seq_attention_mask'].to(device)
-        
+
         valences = batch['valences'].to(device)
         arousals = batch['arousals'].to(device)
         targets = torch.stack([valences, arousals], dim=-1)
-        
+
         predictions = model(input_ids, attention_mask, seq_lengths, seq_mask)
         loss = masked_mse_loss(predictions, targets, seq_mask)
-        
+
         mask = seq_mask.bool()
         num_valid = mask.sum().item()
+
         total_loss += loss.item() * num_valid
         total_samples += num_valid
-        
-        all_preds.append(predictions[mask].cpu())
-        all_targets.append(targets[mask].cpu())
-        
+
+        if collect_preds and collected < max_collect_samples:
+            preds_cpu = predictions[mask].cpu()
+            targs_cpu = targets[mask].cpu()
+
+            remaining = max_collect_samples - collected
+            all_preds.append(preds_cpu[:remaining])
+            all_targets.append(targs_cpu[:remaining])
+            collected += preds_cpu.size(0)
+
         pbar.set_postfix({'loss': loss.item()})
-    
-    return {
-        'loss': total_loss / total_samples,
-        'preds': torch.cat(all_preds, dim=0),
-        'targets': torch.cat(all_targets, dim=0),
-    }
+
+        del predictions, targets, input_ids, attention_mask, seq_lengths, seq_mask
+
+    torch.cuda.empty_cache()
+
+    result = {'loss': total_loss / total_samples}
+
+    if collect_preds:
+        result['preds'] = torch.cat(all_preds, dim=0)
+        result['targets'] = torch.cat(all_targets, dim=0)
+
+    return result
 
 
 def train(model, train_loader, val_loader, optimizer, scheduler, device, config, clipper=None, save_dir='outputs'):
@@ -175,10 +202,16 @@ def train(model, train_loader, val_loader, optimizer, scheduler, device, config,
         print("-" * 30)
         
         # Train
-        train_result = train_epoch(model, train_loader, optimizer, device, config, clipper)
+        train_result = train_epoch(
+            model, train_loader, optimizer, device, config, clipper,
+            collect_preds=False
+        )
         
         # Evaluate
-        val_result = eval_epoch(model, val_loader, device)
+        val_result = eval_epoch(
+            model, val_loader, device,
+            collect_preds=False
+        )
         
         # Update scheduler
         scheduler.step(val_result['loss'])
