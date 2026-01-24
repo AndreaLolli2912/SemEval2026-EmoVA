@@ -89,7 +89,8 @@ class AffectModel(nn.Module):
             hidden_dim=lstm_hidden,
             num_layers=lstm_layers,
             bidirectional=bidirectional,
-            dropout=dropout
+            dropout=dropout,
+            verbose=verbose
         )
         
         # 5. Prediction head
