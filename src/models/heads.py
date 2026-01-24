@@ -35,10 +35,10 @@ class PredictionHead(nn.Module):
             print(f"[PredictionHead] Initialized")
             print(f"  input_dim:        {input_dim}")
             print(f"  dropout:          {dropout}")
-            print(f"  constrain_output: {constrain_output}")
+            print(f"  constrain_output: {constrain_output}\n")
             if constrain_output:
                 print(f"  valence range:    [-2, 2] (tanh * 2)")
-                print(f"  arousal range:    [0, 2] (sigmoid * 2)")
+                print(f"  arousal range:    [0, 2] (sigmoid * 2)\n")
     
     def forward(self, x):
         """
@@ -50,7 +50,7 @@ class PredictionHead(nn.Module):
         """
         if self.verbose:
             print(f"\n  [PredictionHead] Forward pass")
-            print(f"    Input x: {x.shape}")
+            print(f"    Input x: {x.shape}\n")
         
         x = self.dropout(x)
         
@@ -61,7 +61,7 @@ class PredictionHead(nn.Module):
             
             if self.verbose:
                 print(f"    Valence: {v.shape}, range: [{v.min().item():.3f}, {v.max().item():.3f}]")
-                print(f"    Arousal: {a.shape}, range: [{a.min().item():.3f}, {a.max().item():.3f}]")
+                print(f"    Arousal: {a.shape}, range: [{a.min().item():.3f}, {a.max().item():.3f}]\n")
         else:
             predictions = self.fc(x)
             
@@ -69,9 +69,9 @@ class PredictionHead(nn.Module):
                 v_range = predictions[..., 0]
                 a_range = predictions[..., 1]
                 print(f"    Valence range: [{v_range.min().item():.3f}, {v_range.max().item():.3f}]")
-                print(f"    Arousal range: [{a_range.min().item():.3f}, {a_range.max().item():.3f}]")
+                print(f"    Arousal range: [{a_range.min().item():.3f}, {a_range.max().item():.3f}]\n")
         
         if self.verbose:
-            print(f"    Output: {predictions.shape}")
+            print(f"    Output: {predictions.shape}\n")
         
         return predictions

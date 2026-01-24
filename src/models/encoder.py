@@ -28,7 +28,7 @@ class TransformerEncoder(nn.Module):
         if self.verbose:
             print(f"[TransformerEncoder] Loaded: {model_path}")
             print(f"[TransformerEncoder] Hidden size: {self.hidden_size}")
-            print(f"[TransformerEncoder] Backbone frozen: True")
+            print(f"[TransformerEncoder] Backbone frozen: True\n")
     
     def _freeze_backbone(self):
         for param in self.backbone.parameters():
@@ -40,7 +40,7 @@ class TransformerEncoder(nn.Module):
         super().train(mode)
         self.backbone.eval()
         if self.verbose:
-            print(f"[TransformerEncoder] train({mode}) called, backbone forced to eval")
+            print(f"[TransformerEncoder] train({mode}) called, backbone forced to eval\n")
         return self
     
     def forward(self, input_ids, attention_mask):
@@ -58,7 +58,7 @@ class TransformerEncoder(nn.Module):
             print(f"  Input:")
             print(f"    input_ids:      {input_ids.shape}")
             print(f"    attention_mask: {attention_mask.shape}")
-            print(f"    real tokens:    {attention_mask.sum().item()} / {attention_mask.numel()}")
+            print(f"    real tokens:    {attention_mask.sum().item()} / {attention_mask.numel()}\n")
         
         with torch.no_grad():
             tokens = self.backbone(
@@ -72,7 +72,7 @@ class TransformerEncoder(nn.Module):
             print(f"  Output:")
             print(f"    tokens:       {tokens.shape}")
             print(f"    padding_mask: {padding_mask.shape}")
-            print(f"    positions to ignore: {padding_mask.sum().item()}")
+            print(f"    positions to ignore: {padding_mask.sum().item()}\n")
         
         return tokens, padding_mask
     

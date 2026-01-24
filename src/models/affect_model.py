@@ -42,7 +42,7 @@ class AffectModel(nn.Module):
         # Shared params
         dropout=0.3,
         # Head params
-        constrain_arousal=False,
+        constrain_output=False,
         # Debug
         verbose=False
     ):
@@ -97,7 +97,7 @@ class AffectModel(nn.Module):
         self.head = PredictionHead(
             input_dim=self.lstm.output_dim,
             dropout=dropout,
-            constrain_arousal=constrain_arousal,
+            constrain_output=constrain_output,
             verbose=verbose
         )
         
@@ -107,7 +107,7 @@ class AffectModel(nn.Module):
             print(f"  ISAB: {n_inducing} inducing points" if n_inducing else "  ISAB: disabled")
             print(f"  PMA: {n_seeds} seeds")
             print(f"  LSTM: input={lstm_input_dim}, hidden={lstm_hidden}, layers={lstm_layers}, bidir={bidirectional}")
-            print(f"  Head: output=2, constrain_arousal={constrain_arousal}")
+            print(f"  Head: output=2, constrain_output={constrain_output}\n")
     
     def forward(self, input_ids, attention_mask, seq_lengths, seq_mask):
         """
@@ -129,7 +129,7 @@ class AffectModel(nn.Module):
             print(f"    input_ids:      {input_ids.shape} (B={B}, S={S}, T={T})")
             print(f"    attention_mask: {attention_mask.shape}")
             print(f"    seq_lengths:    {seq_lengths.shape} -> {seq_lengths.tolist()}")
-            print(f"    seq_mask:       {seq_mask.shape} -> {mask.sum().item()} valid documents")
+            print(f"    seq_mask:       {seq_mask.shape} -> {mask.sum().item()} valid documents\n")
         
         # 1. Flatten valid documents
         input_ids_flat = input_ids[mask]          # [N_valid, T]
@@ -137,7 +137,7 @@ class AffectModel(nn.Module):
         
         if self.verbose:
             print(f"\n  Step 1: Flatten valid documents")
-            print(f"    input_ids_flat: {input_ids_flat.shape}")
+            print(f"    input_ids_flat: {input_ids_flat.shape}\n")
         
         # 2. Encode with transformer
         tokens, padding_mask = self.encoder(input_ids_flat, attention_mask_flat)
@@ -145,21 +145,21 @@ class AffectModel(nn.Module):
         if self.verbose:
             print(f"\n  Step 2: Transformer encoding")
             print(f"    tokens: {tokens.shape}")
-            print(f"    padding_mask: {padding_mask.shape}")
+            print(f"    padding_mask: {padding_mask.shape}\n")
         
         # 3. ISAB (optional enrichment)
         if self.isab is not None:
             tokens = self.isab(tokens, padding_mask)
             if self.verbose:
                 print(f"\n  Step 3: ISAB enrichment")
-                print(f"    tokens (enriched): {tokens.shape}")
+                print(f"    tokens (enriched): {tokens.shape}\n")
         
         # 4. PMA (pool to fixed size)
         emb_flat = self.pma(tokens, padding_mask)  # [N_valid, n_seeds, H]
         
         if self.verbose:
             print(f"\n  Step 4: PMA pooling")
-            print(f"    emb_flat: {emb_flat.shape}")
+            print(f"    emb_flat: {emb_flat.shape}\n")
         
         # 5. Reconstruct padded tensor
         emb = torch.zeros(
@@ -171,21 +171,21 @@ class AffectModel(nn.Module):
         
         if self.verbose:
             print(f"\n  Step 5: Reconstruct for LSTM")
-            print(f"    emb (reconstructed): {emb.shape}")
+            print(f"    emb (reconstructed): {emb.shape}\n")
         
         # 6. LSTM
         lstm_out = self.lstm(emb, seq_lengths)  # [B, S, hidden*2]
         
         if self.verbose:
             print(f"\n  Step 6: LSTM")
-            print(f"    lstm_out: {lstm_out.shape}")
+            print(f"    lstm_out: {lstm_out.shape}\n")
         
         # 7. Predict
         predictions = self.head(lstm_out)  # [B, S, 2]
         
         if self.verbose:
             print(f"\n  Step 7: Prediction head")
-            print(f"    predictions: {predictions.shape}")
+            print(f"    predictions: {predictions.shape}\n")
         
         return predictions
 

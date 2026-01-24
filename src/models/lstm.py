@@ -60,7 +60,7 @@ class LSTMEncoder(nn.Module):
             print(f"  hidden_dim:    {hidden_dim}")
             print(f"  num_layers:    {num_layers}")
             print(f"  bidirectional: {bidirectional}")
-            print(f"  output_dim:    {self.output_dim}")
+            print(f"  output_dim:    {self.output_dim}\n")
     
     def forward(self, x, seq_lengths):
         """
@@ -77,7 +77,7 @@ class LSTMEncoder(nn.Module):
             print(f"\n  [LSTMEncoder] Forward pass")
             print(f"    Input x: {x.shape} (B={B}, S={S}, D={D})")
             print(f"    seq_lengths: {seq_lengths.tolist()}")
-            print(f"    total valid timesteps: {seq_lengths.sum().item()}")
+            print(f"    total valid timesteps: {seq_lengths.sum().item()}\n")
         
         # Pack sequences (efficient - skips padding)
         packed = pack_padded_sequence(
@@ -88,20 +88,20 @@ class LSTMEncoder(nn.Module):
         
         if self.verbose:
             print(f"    Packed data shape: {packed.data.shape}")
-            print(f"    Packed batch_sizes: {packed.batch_sizes[:5].tolist()}..." if len(packed.batch_sizes) > 5 else f"    Packed batch_sizes: {packed.batch_sizes.tolist()}")
+            print(f"    Packed batch_sizes: {packed.batch_sizes[:5].tolist()}..." if len(packed.batch_sizes) > 5 else f"    Packed batch_sizes: {packed.batch_sizes.tolist()}\n")
         
         # LSTM forward
         packed_out, (h_n, c_n) = self.lstm(packed)
         
         if self.verbose:
             print(f"    h_n shape: {h_n.shape} (num_layers*directions, B, hidden)")
-            print(f"    c_n shape: {c_n.shape}")
+            print(f"    c_n shape: {c_n.shape}\n")
         
         # Unpack back to padded
         output, output_lengths = pad_packed_sequence(packed_out, batch_first=True)
         
         if self.verbose:
             print(f"    Output (unpacked): {output.shape}")
-            print(f"    Output lengths: {output_lengths.tolist()}")
+            print(f"    Output lengths: {output_lengths.tolist()}\n")
         
         return output

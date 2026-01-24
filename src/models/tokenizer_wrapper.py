@@ -13,7 +13,7 @@ class TokenizerWrapper:
         inputs = self.tokenizer(
             texts, 
             return_tensors="pt", 
-            padding='max_length',  # Always pad to max_length for consistent shapes
+            padding='max_length',
             truncation=True,
             max_length=self.max_len
         )
