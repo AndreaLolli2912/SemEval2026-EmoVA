@@ -7,16 +7,41 @@ class LSTMEncoder(nn.Module):
     """
     LSTM encoder for sequential embeddings.
     
-    Input: [B, S, input_dim]
-    Output: [B, S, hidden_dim * num_directions]
+    Processes document sequences with packing for efficiency.
+    
+    Args:
+        input_dim: Input feature dimension
+        hidden_dim: LSTM hidden dimension
+        num_layers: Number of LSTM layers
+        bidirectional: Whether to use bidirectional LSTM
+        dropout: Dropout probability (applied between layers if num_layers > 1)
+        verbose: Print shape information during forward pass
+    
+    Input: 
+        x: [B, S, input_dim] - document embeddings
+        seq_lengths: [B] - actual sequence lengths
+    
+    Output: 
+        [B, S, hidden_dim * num_directions]
     """
     
-    def __init__(self, input_dim, hidden_dim=256, num_layers=2, bidirectional=True, dropout=0.3, cls_dim=None):
+    def __init__(
+        self, 
+        input_dim, 
+        hidden_dim=256, 
+        num_layers=2, 
+        bidirectional=True, 
+        dropout=0.3,
+        verbose=False
+    ):
         super().__init__()
         
+        self.verbose = verbose
+        self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self.num_layers = num_layers
         self.num_directions = 2 if bidirectional else 1
+        self.bidirectional = bidirectional
         
         self.lstm = nn.LSTM(
             input_size=input_dim,
@@ -27,41 +52,56 @@ class LSTMEncoder(nn.Module):
             dropout=dropout if num_layers > 1 else 0
         )
         
-        # CLS projection: identity if dims match or not provided
-        if cls_dim is not None and cls_dim != hidden_dim:
-            self.cls_proj = nn.Linear(cls_dim, hidden_dim)
-        else:
-            self.cls_proj = nn.Identity()
-        
         self.output_dim = hidden_dim * self.num_directions
+        
+        if self.verbose:
+            print(f"[LSTMEncoder] Initialized")
+            print(f"  input_dim:     {input_dim}")
+            print(f"  hidden_dim:    {hidden_dim}")
+            print(f"  num_layers:    {num_layers}")
+            print(f"  bidirectional: {bidirectional}")
+            print(f"  output_dim:    {self.output_dim}")
     
-    def forward(self, x, seq_lengths, init_hidden=None):
+    def forward(self, x, seq_lengths):
         """
         Args:
-            x: [B, S, input_dim]
-            seq_lengths: [B] actual lengths
-            init_hidden: [B, cls_dim] optional CLS embedding to initialize hidden state
+            x: [B, S, input_dim] - document embeddings
+            seq_lengths: [B] - actual sequence lengths per user
         
         Returns:
             output: [B, S, hidden_dim * num_directions]
         """
-        hidden = None
+        B, S, D = x.shape
         
-        if init_hidden is not None:
-            B = init_hidden.size(0)
-            h_proj = self.cls_proj(init_hidden)  # [B, hidden_dim]
-            
-            # Expand for all layers and directions
-            h_0 = h_proj.unsqueeze(0).expand(self.num_layers * self.num_directions, -1, -1)
-            c_0 = torch.zeros_like(h_0)
-            hidden = (h_0.contiguous(), c_0.contiguous())
+        if self.verbose:
+            print(f"\n  [LSTMEncoder] Forward pass")
+            print(f"    Input x: {x.shape} (B={B}, S={S}, D={D})")
+            print(f"    seq_lengths: {seq_lengths.tolist()}")
+            print(f"    total valid timesteps: {seq_lengths.sum().item()}")
         
+        # Pack sequences (efficient - skips padding)
         packed = pack_padded_sequence(
             x, seq_lengths.cpu(),
-            batch_first=True, enforce_sorted=False
+            batch_first=True, 
+            enforce_sorted=False
         )
         
-        packed_out, _ = self.lstm(packed, hidden)
-        output, _ = pad_packed_sequence(packed_out, batch_first=True)
+        if self.verbose:
+            print(f"    Packed data shape: {packed.data.shape}")
+            print(f"    Packed batch_sizes: {packed.batch_sizes[:5].tolist()}..." if len(packed.batch_sizes) > 5 else f"    Packed batch_sizes: {packed.batch_sizes.tolist()}")
+        
+        # LSTM forward
+        packed_out, (h_n, c_n) = self.lstm(packed)
+        
+        if self.verbose:
+            print(f"    h_n shape: {h_n.shape} (num_layers*directions, B, hidden)")
+            print(f"    c_n shape: {c_n.shape}")
+        
+        # Unpack back to padded
+        output, output_lengths = pad_packed_sequence(packed_out, batch_first=True)
+        
+        if self.verbose:
+            print(f"    Output (unpacked): {output.shape}")
+            print(f"    Output lengths: {output_lengths.tolist()}")
         
         return output
