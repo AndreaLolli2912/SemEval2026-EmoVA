@@ -16,7 +16,7 @@ from src.training.utils import EarlyStopping
 def train_epoch(
     model,
     dataloader,
-    loss_fn,
+    loss_fn,  # "masked_mse_loss" or "combined_loss"
     optimizer,
     device,
     config,
@@ -25,74 +25,88 @@ def train_epoch(
     max_collect_samples=5000,
 ):
     model.train()
-
+    
     total_loss = 0.0
     total_samples = 0
-
+    
     all_preds = [] if collect_preds else None
     all_targets = [] if collect_preds else None
     collected = 0
-
-    optimizer.zero_grad()
-
+    
+    optimizer.zero_grad(set_to_none=True)
+    
+    scaler = torch.cuda.amp.GradScaler()  # FP16 safe scaling
+    
     pbar = tqdm(dataloader, desc="Training", leave=False)
+    
     for step, batch in enumerate(pbar):
+        # Move batch to device
         input_ids = batch['input_ids'].to(device)
         attention_mask = batch['attention_mask'].to(device)
         seq_lengths = batch['seq_lengths'].to(device)
         seq_mask = batch['seq_attention_mask'].to(device)
-
         valences = batch['valences'].to(device)
         arousals = batch['arousals'].to(device)
         targets = torch.stack([valences, arousals], dim=-1)
-
-        predictions = model(input_ids, attention_mask, seq_lengths, seq_mask)
-
-        if loss_fn == "masked_mse_loss":
-            loss = masked_mse_loss(predictions, targets, seq_mask)
-        elif loss_fn == "combined_loss":
-            loss = combined_loss(predictions, targets, seq_mask)
-        else:
-            raise ValueError(f"Unknown loss {loss_fn}")
+        
+        # Forward + loss in AMP
+        with torch.cuda.amp.autocast():  # FP16 where safe
+            predictions = model(input_ids, attention_mask, seq_lengths, seq_mask)
             
-        loss = loss / config.accumulation_steps
-        loss.backward()
-
+            if loss_fn == "masked_mse_loss":
+                current_loss = masked_mse_loss(predictions.float(), targets.float(), seq_mask)
+            elif loss_fn == "combined_loss":
+                current_loss = combined_loss(predictions.float(), targets.float(), seq_mask)
+            else:
+                raise ValueError(f"Unknown loss {loss_fn}")
+            
+            # scale for gradient accumulation
+            current_loss = current_loss / config.accumulation_steps
+        
+        # Backward with scaler
+        scaler.scale(current_loss).backward()
+        
+        # Gradient accumulation step
         if (step + 1) % config.accumulation_steps == 0:
             if clipper:
                 clipper(model)
-            optimizer.step()
-            optimizer.zero_grad()
-
+            
+            # scaler handles FP16 step
+            scaler.step(optimizer)
+            scaler.update()
+            optimizer.zero_grad(set_to_none=True)
+        
+        # Track loss
         with torch.no_grad():
             mask = seq_mask.bool()
             num_valid = mask.sum().item()
-
-            total_loss += loss.item() * config.accumulation_steps * num_valid
+            total_loss += (current_loss.detach().float().item() * config.accumulation_steps * num_valid)
             total_samples += num_valid
-
+            
             if collect_preds and collected < max_collect_samples:
                 preds_cpu = predictions[mask].detach().cpu()
                 targs_cpu = targets[mask].detach().cpu()
-
                 remaining = max_collect_samples - collected
                 all_preds.append(preds_cpu[:remaining])
                 all_targets.append(targs_cpu[:remaining])
                 collected += preds_cpu.size(0)
-
-        pbar.set_postfix({'loss': loss.item() * config.accumulation_steps})
-
-        # explicitly free GPU tensors
+        
+        # tqdm display
+        loss_to_show = float(current_loss.detach().float().item() * config.accumulation_steps)
+        pbar.set_postfix({'loss': loss_to_show})
+        
+        # Free memory
         del predictions, targets, input_ids, attention_mask, seq_lengths, seq_mask
-
+        torch.cuda.empty_cache()
+    
+    # Handle leftover steps if not divisible by accumulation_steps
     if (step + 1) % config.accumulation_steps != 0:
         if clipper:
             clipper(model)
-        optimizer.step()
-        optimizer.zero_grad()
-
-    torch.cuda.empty_cache()
-
+        scaler.step(optimizer)
+        scaler.update()
+        optimizer.zero_grad(set_to_none=True)
+    
     result = {
         'loss': total_loss / total_samples,
         'grad_norm': (
@@ -101,11 +115,11 @@ def train_epoch(
             else 0.0
         ),
     }
-
+    
     if collect_preds:
         result['preds'] = torch.cat(all_preds, dim=0)
         result['targets'] = torch.cat(all_targets, dim=0)
-
+    
     return result
 
 @torch.no_grad()
