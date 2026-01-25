@@ -88,7 +88,7 @@ def load_model_from_checkpoint(checkpoint_path, device='cuda'):
         pma_num_seeds=config['pma_num_seeds'],
         lstm_hidden_dim=config['lstm_hidden_dim'],
         lstm_num_layers=config['lstm_num_layers'],
-        head_dropout=config['dropout'],
+        dropout=config['dropout'],
     )
     
     model.load_state_dict(checkpoint['model_state_dict'])
