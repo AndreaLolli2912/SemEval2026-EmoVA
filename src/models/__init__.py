@@ -2,7 +2,7 @@ from .encoder import TransformerEncoder
 from .set_attention import ISAB, PMA
 from .lstm import LSTMEncoder
 from .heads import PredictionHead
-from .affect_model import AffectModel, masked_mse_loss
+from .affect_model import AffectModel
 
 __all__ = [
     'TransformerEncoder',
@@ -10,6 +10,5 @@ __all__ = [
     'PMA',
     'LSTMEncoder',
     'PredictionHead',
-    'AffectModel',
-    'masked_mse_loss'
+    'AffectModel'
 ]
