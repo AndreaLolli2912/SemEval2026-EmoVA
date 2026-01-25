@@ -16,7 +16,7 @@ from src.training.utils import EarlyStopping
 def train_epoch(
     model,
     dataloader,
-    loss,
+    loss_fn,
     optimizer,
     device,
     config,
@@ -48,11 +48,13 @@ def train_epoch(
 
         predictions = model(input_ids, attention_mask, seq_lengths, seq_mask)
 
-        if loss == "masked_mse_loss":
+        if loss_fn == "masked_mse_loss":
             loss = masked_mse_loss(predictions, targets, seq_mask)
-        elif loss == "combined_loss":
+        elif loss_fn == "combined_loss":
             loss = combined_loss(predictions, targets, seq_mask)
-
+        else:
+            raise ValueError(f"Unknown loss {loss_fn}")
+            
         loss = loss / config.accumulation_steps
         loss.backward()
 
@@ -105,8 +107,6 @@ def train_epoch(
         result['targets'] = torch.cat(all_targets, dim=0)
 
     return result
-
-
 
 @torch.no_grad()
 def eval_epoch(
@@ -168,8 +168,7 @@ def eval_epoch(
 
     return result
 
-
-def train(model, train_loader, val_loader, loss, optimizer, scheduler, device, config, clipper=None, save_dir='outputs'):
+def train(model, train_loader, val_loader, loss_fn, optimizer, scheduler, device, config, clipper=None, save_dir='outputs'):
     """
     Full training loop with checkpoint saving.
     
@@ -182,7 +181,7 @@ def train(model, train_loader, val_loader, loss, optimizer, scheduler, device, c
         model: The model to train
         train_loader: Training dataloader
         val_loader: Validation dataloader
-        loss: Loss function name
+        loss_fn: Loss function name
         optimizer: Optimizer
         scheduler: LR scheduler (must have .step(val_loss) method)
         device: torch device
@@ -208,7 +207,7 @@ def train(model, train_loader, val_loader, loss, optimizer, scheduler, device, c
         
         # Train
         train_result = train_epoch(
-            model, train_loader, loss, optimizer, device, config, clipper,
+            model, train_loader, loss_fn, optimizer, device, config, clipper,
             collect_preds=False
         )
         
