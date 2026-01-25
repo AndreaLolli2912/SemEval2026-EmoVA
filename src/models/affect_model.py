@@ -31,6 +31,7 @@ class AffectModel(nn.Module):
         self,
         # Encoder params
         model_path,
+        encoder_bitfit=False,
         # Set attention params
         pma_num_seeds=4,
         isab_inducing_points=32,
@@ -55,6 +56,7 @@ class AffectModel(nn.Module):
         # 1. Transformer encoder (frozen)
         self.encoder = TransformerEncoder(
             model_path=model_path,
+            fine_tune_bias=encoder_bitfit,
             verbose=verbose
         )
         
@@ -188,20 +190,3 @@ class AffectModel(nn.Module):
             print(f"    predictions: {predictions.shape}\n")
         
         return predictions
-
-
-def masked_mse_loss(pred, target, mask):
-    """
-    MSE loss only on valid timesteps.
-    
-    Args:
-        pred: [B, S, 2]
-        target: [B, S, 2]
-        mask: [B, S] boolean
-    
-    Returns:
-        scalar loss
-    """
-    mse = (pred - target) ** 2
-    mse = mse * mask.unsqueeze(-1)
-    return mse.sum() / (mask.sum() * pred.size(-1))

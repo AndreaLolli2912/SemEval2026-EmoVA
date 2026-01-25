@@ -2,20 +2,17 @@ import torch
 import torch.nn as nn
 from transformers import AutoModel
 
-
 class TransformerEncoder(nn.Module):
     """
-    Frozen transformer encoder.
-    
-    Returns raw token embeddings for downstream pooling (PMA/ISAB).
-    No trainable parameters - backbone is always frozen.
+    Transformer encoder with optional BitFit (Bias-term Fine-tuning).
     
     Args:
         model_path: HuggingFace model path
+        fine_tune_bias: If True, unfreezes bias terms (BitFit) while keeping weights frozen.
         verbose: If True, print shapes and flow information
     """
     
-    def __init__(self, model_path, verbose=False):
+    def __init__(self, model_path, fine_tune_bias=False, verbose=False):
         super().__init__()
         
         self.verbose = verbose
@@ -23,24 +20,29 @@ class TransformerEncoder(nn.Module):
         self.backbone = AutoModel.from_pretrained(model_path)
         self.hidden_size = self.backbone.config.hidden_size
         
-        self._freeze_backbone()
-        
+        self._configure_gradients()
+
         if self.verbose:
             print(f"[TransformerEncoder] Loaded: {model_path}")
             print(f"[TransformerEncoder] Hidden size: {self.hidden_size}")
             print(f"[TransformerEncoder] Backbone frozen: True\n")
     
-    def _freeze_backbone(self):
-        for param in self.backbone.parameters():
-            param.requires_grad = False
+    def _configure_gradients(self):
+        for name, param in self.backbone.named_parameters():
+            if self.fine_tune_bias and "bias" in name:
+                param.requires_grad = True
+            else:
+                param.requires_grad = False
         self.backbone.eval()
-    
+
     def train(self, mode=True):
-        """Override to keep backbone in eval mode."""
+        """
+        Override to manage backbone state.
+        For BitFit, we usually keep the backbone structure (Dropout) in eval mode
+        to prevent noise, even though we are updating bias params.
+        """
         super().train(mode)
         self.backbone.eval()
-        if self.verbose:
-            print(f"[TransformerEncoder] train({mode}) called, backbone forced to eval\n")
         return self
     
     def forward(self, input_ids, attention_mask):
@@ -60,11 +62,10 @@ class TransformerEncoder(nn.Module):
             print(f"    attention_mask: {attention_mask.shape}")
             print(f"    real tokens:    {attention_mask.sum().item()} / {attention_mask.numel()}\n")
         
-        with torch.no_grad():
-            tokens = self.backbone(
-                input_ids=input_ids,
-                attention_mask=attention_mask
-            ).last_hidden_state
+        tokens = self.backbone(
+            input_ids=input_ids,
+            attention_mask=attention_mask
+        ).last_hidden_state
         
         padding_mask = (attention_mask == 0)
         
