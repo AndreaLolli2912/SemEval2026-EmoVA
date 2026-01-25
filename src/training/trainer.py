@@ -75,7 +75,7 @@ def train_epoch(
 
         pbar.set_postfix({'loss': loss.item() * config.accumulation_steps})
 
-        # 🔥 explicitly free GPU tensors
+        # explicitly free GPU tensors
         del predictions, targets, input_ids, attention_mask, seq_lengths, seq_mask
 
     if (step + 1) % config.accumulation_steps != 0:
@@ -198,8 +198,7 @@ def train(model, train_loader, val_loader, optimizer, scheduler, device, config,
     early_stopping = EarlyStopping(patience=config.patience, mode='min')
     
     for epoch in range(config.epochs):
-        print(f"\nEpoch {epoch + 1}/{config.epochs}")
-        print("-" * 30)
+        
         
         # Train
         train_result = train_epoch(
@@ -217,9 +216,12 @@ def train(model, train_loader, val_loader, optimizer, scheduler, device, config,
         scheduler.step(val_result['loss'])
         
         # Log
-        print(f"  Train Loss: {train_result['loss']:.4f}")
-        print(f"  Val Loss:   {val_result['loss']:.4f}")
-        print(f"  LR: {optimizer.param_groups[0]['lr']:.2e}")
+        if (epoch + 1) % 5 ==0:
+            print(f"\nEpoch {epoch + 1}/{config.epochs}")
+            print("-" * 30)
+            print(f"  Train Loss: {train_result['loss']:.4f}")
+            print(f"  Val Loss:   {val_result['loss']:.4f}")
+            print(f"  LR: {optimizer.param_groups[0]['lr']:.2e}")
         
         # Store history
         history['train_loss'].append(train_result['loss'])
