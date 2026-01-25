@@ -16,7 +16,7 @@ class TransformerEncoder(nn.Module):
         super().__init__()
         
         self.verbose = verbose
-        
+        self.fine_tune_bias = fine_tune_bias
         self.backbone = AutoModel.from_pretrained(model_path)
         self.hidden_size = self.backbone.config.hidden_size
         
