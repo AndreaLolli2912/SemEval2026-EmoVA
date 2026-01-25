@@ -9,13 +9,14 @@ import torch
 import numpy as np
 from tqdm.auto import tqdm
 
-from src.training.losses import masked_mse_loss
+from src.training.losses import masked_mse_loss, combined_loss
 from src.training.utils import EarlyStopping
 
 
 def train_epoch(
     model,
     dataloader,
+    loss,
     optimizer,
     device,
     config,
@@ -47,7 +48,11 @@ def train_epoch(
 
         predictions = model(input_ids, attention_mask, seq_lengths, seq_mask)
 
-        loss = masked_mse_loss(predictions, targets, seq_mask)
+        if loss == "masked_mse_loss":
+            loss = masked_mse_loss(predictions, targets, seq_mask)
+        elif loss == "combined_loss":
+            loss = combined_loss(predictions, targets, seq_mask)
+
         loss = loss / config.accumulation_steps
         loss.backward()
 
@@ -164,7 +169,7 @@ def eval_epoch(
     return result
 
 
-def train(model, train_loader, val_loader, optimizer, scheduler, device, config, clipper=None, save_dir='outputs'):
+def train(model, train_loader, val_loader, loss, optimizer, scheduler, device, config, clipper=None, save_dir='outputs'):
     """
     Full training loop with checkpoint saving.
     
@@ -177,6 +182,7 @@ def train(model, train_loader, val_loader, optimizer, scheduler, device, config,
         model: The model to train
         train_loader: Training dataloader
         val_loader: Validation dataloader
+        loss: Loss function name
         optimizer: Optimizer
         scheduler: LR scheduler (must have .step(val_loss) method)
         device: torch device
@@ -202,7 +208,7 @@ def train(model, train_loader, val_loader, optimizer, scheduler, device, config,
         
         # Train
         train_result = train_epoch(
-            model, train_loader, optimizer, device, config, clipper,
+            model, train_loader, loss, optimizer, device, config, clipper,
             collect_preds=False
         )
         
