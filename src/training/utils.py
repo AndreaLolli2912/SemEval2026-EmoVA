@@ -84,7 +84,6 @@ def load_model_from_checkpoint(checkpoint_path, device='cuda'):
     # Rebuild model with saved config
     model = AffectModel(
         model_path=config['model_name'],
-        freeze_backbone=config['freeze_backbone'],
         isab_inducing_points=config['isab_inducing_points'],
         pma_num_seeds=config['pma_num_seeds'],
         lstm_hidden_dim=config['lstm_hidden_dim'],
