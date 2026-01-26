@@ -43,11 +43,11 @@ def train_epoch(
     for step, batch in enumerate(pbar):
         # Move batch to device
         input_ids = batch['input_ids'].to(device)
-        attention_mask = batch['attention_mask'].to(device)
-        seq_lengths = batch['seq_lengths'].to(device)
-        seq_mask = batch['seq_attention_mask'].to(device)
-        valences = batch['valences'].to(device)
-        arousals = batch['arousals'].to(device)
+        attention_mask = batch['attention_mask'].to(device, non_blocking=True)  # added non_blocking=True to speed up the code
+        seq_lengths = batch['seq_lengths'].to(device, non_blocking=True)
+        seq_mask = batch['seq_attention_mask'].to(device, non_blocking=True)
+        valences = batch['valences'].to(device, non_blocking=True)
+        arousals = batch['arousals'].to(device, non_blocking=True)
         targets = torch.stack([valences, arousals], dim=-1)
         
         # Forward + loss in AMP
@@ -55,17 +55,19 @@ def train_epoch(
             predictions = model(input_ids, attention_mask, seq_lengths, seq_mask)
             
             if loss_fn == "masked_mse_loss":
-                current_loss = masked_mse_loss(predictions.float(), targets.float(), seq_mask)
+                current_loss_raw = masked_mse_loss(predictions.float(), targets.float(), seq_mask)
             elif loss_fn == "combined_loss":
-                current_loss = combined_loss(predictions.float(), targets.float(), seq_mask)
+                current_loss_raw = combined_loss(predictions.float(), targets.float(), seq_mask)
             else:
                 raise ValueError(f"Unknown loss {loss_fn}")
             
             # scale for gradient accumulation
-            current_loss = current_loss / config.accumulation_steps
+            current_loss = current_loss_raw / config.accumulation_steps
         
         # Backward with scaler
         scaler.scale(current_loss).backward()
+
+        current_loss_val = current_loss_raw.detach().float().item  # save the current non scaled loss
         
         # Gradient accumulation step
         if (step + 1) % config.accumulation_steps == 0:
@@ -80,7 +82,8 @@ def train_epoch(
         with torch.no_grad():
             mask = seq_mask.bool()
             num_valid = mask.sum().item()
-            total_loss += (current_loss.detach().float().item() * config.accumulation_steps * num_valid)
+            total_loss += (current_loss_val*num_valid)
+                        #(current_loss.detach().float().item() * config.accumulation_steps * num_valid)
             total_samples += num_valid
             
             if collect_preds and collected < max_collect_samples:
@@ -92,12 +95,13 @@ def train_epoch(
                 collected += preds_cpu.size(0)
         
         # tqdm display
-        loss_to_show = float(current_loss.detach().float().item() * config.accumulation_steps)
-        pbar.set_postfix({'loss': loss_to_show})
+        #loss_to_show = float(current_loss.detach().float().item() * config.accumulation_steps)
+        #pbar.set_postfix({'loss': loss_to_show})
+        pbar.set_postfix({'loss': current_loss_val})
         
         # Free memory
-        del predictions, targets, input_ids, attention_mask, seq_lengths, seq_mask
-        torch.cuda.empty_cache()
+        del predictions, targets, input_ids, attention_mask, seq_lengths, seq_mask, current_loss, current_loss_raw, valence, arousal # add from current_loss
+        #torch.cuda.empty_cache()
     
     # Handle leftover steps if not divisible by accumulation_steps
     # Gradient accumulation step
@@ -108,6 +112,8 @@ def train_epoch(
         scaler.step(optimizer)
         scaler.update()
         optimizer.zero_grad(set_to_none=True)
+    
+    torch.cuda.empty_cache()
     
     result = {
         'loss': total_loss / total_samples,
@@ -143,13 +149,13 @@ def eval_epoch(
 
     pbar = tqdm(dataloader, desc="Evaluating", leave=False)
     for batch in pbar:
-        input_ids = batch['input_ids'].to(device)
-        attention_mask = batch['attention_mask'].to(device)
-        seq_lengths = batch['seq_lengths'].to(device)
-        seq_mask = batch['seq_attention_mask'].to(device)
+        input_ids = batch['input_ids'].to(device, non_blocking=True)
+        attention_mask = batch['attention_mask'].to(device, non_blocking=True)
+        seq_lengths = batch['seq_lengths'].to(device, non_blocking=True)
+        seq_mask = batch['seq_attention_mask'].to(device, non_blocking=True)
 
-        valences = batch['valences'].to(device)
-        arousals = batch['arousals'].to(device)
+        valences = batch['valences'].to(device, non_blocking=True)
+        arousals = batch['arousals'].to(device, non_blocking=True)
         targets = torch.stack([valences, arousals], dim=-1)
 
         predictions = model(input_ids, attention_mask, seq_lengths, seq_mask)
@@ -172,7 +178,7 @@ def eval_epoch(
 
         pbar.set_postfix({'loss': loss.item()})
 
-        del predictions, targets, input_ids, attention_mask, seq_lengths, seq_mask
+        del predictions, targets, input_ids, attention_mask, seq_lengths, seq_mask, valence, arousal # added from valcence
 
     torch.cuda.empty_cache()
 
