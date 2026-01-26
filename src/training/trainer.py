@@ -69,9 +69,8 @@ def train_epoch(
         # Gradient accumulation step
         if (step + 1) % config.accumulation_steps == 0:
             if clipper:
+                scaler.unscale_(optimizer)
                 clipper(model)
-            
-            # scaler handles FP16 step
             scaler.step(optimizer)
             scaler.update()
             optimizer.zero_grad(set_to_none=True)
@@ -100,7 +99,9 @@ def train_epoch(
         torch.cuda.empty_cache()
     
     # Handle leftover steps if not divisible by accumulation_steps
-    if (step + 1) % config.accumulation_steps != 0:
+    # Gradient accumulation step
+    if (step + 1) % config.accumulation_steps == 0:
+        scaler.unscale_(optimizer)  # Add this line
         if clipper:
             clipper(model)
         scaler.step(optimizer)
