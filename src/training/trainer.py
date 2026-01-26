@@ -43,7 +43,7 @@ def train_epoch(
     for step, batch in enumerate(pbar):
         # Move batch to device
         input_ids = batch['input_ids'].to(device)
-        user_ids = batch['user_ids'].to(device, non_blocking=True)
+        user_ids = torch.tensor(batch['user_ids'], dtype=torch.long, device=device)
         attention_mask = batch['attention_mask'].to(device, non_blocking=True)  # added non_blocking=True to speed up the code
         seq_lengths = batch['seq_lengths'].to(device, non_blocking=True)
         seq_mask = batch['seq_attention_mask'].to(device, non_blocking=True)
