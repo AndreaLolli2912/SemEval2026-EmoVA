@@ -100,7 +100,7 @@ def train_epoch(
         pbar.set_postfix({'loss': current_loss_val})
         
         # Free memory
-        del predictions, targets, input_ids, attention_mask, seq_lengths, seq_mask, current_loss, current_loss_raw, valence, arousal # add from current_loss
+        del predictions, targets, input_ids, attention_mask, seq_lengths, seq_mask, current_loss, current_loss_raw, valences, arousals # add from current_loss
         #torch.cuda.empty_cache()
     
     # Handle leftover steps if not divisible by accumulation_steps
@@ -178,7 +178,7 @@ def eval_epoch(
 
         pbar.set_postfix({'loss': loss.item()})
 
-        del predictions, targets, input_ids, attention_mask, seq_lengths, seq_mask, valence, arousal # added from valcence
+        del predictions, targets, input_ids, attention_mask, seq_lengths, seq_mask, valences, arousals # added from valcence
 
     torch.cuda.empty_cache()
 
