@@ -248,7 +248,7 @@ def train(model, train_loader, val_loader, loss_fn, optimizer, scheduler, device
             print("-" * 30)
             print(f"  Train Loss: {train_result['loss']:.4f}")
             print(f"  Val Loss:   {val_result['loss']:.4f}")
-            print(f"  LR: {optimizer.param_groups[0]['lr']:.2e}")
+            print(f"  LR: {optimizer.param_groups[-1]['lr']:.2e}")
         
         # Store history
         history['train_loss'].append(train_result['loss'])
