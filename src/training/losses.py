@@ -1,3 +1,5 @@
+import torch
+
 def masked_mse_loss(predictions, targets, mask):
     mask = mask.unsqueeze(-1).float()
     squared_error = (predictions - targets) ** 2
