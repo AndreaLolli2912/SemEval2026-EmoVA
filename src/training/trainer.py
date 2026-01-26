@@ -9,7 +9,7 @@ import torch
 import numpy as np
 from tqdm.auto import tqdm
 
-from src.training.losses import masked_mse_loss, combined_loss
+from src.training.losses import masked_mse_loss, combined_loss, composite_aligned_loss
 from src.training.utils import EarlyStopping
 
 
@@ -43,6 +43,7 @@ def train_epoch(
     for step, batch in enumerate(pbar):
         # Move batch to device
         input_ids = batch['input_ids'].to(device)
+        user_ids = batch['user_ids'].to(device, non_blocking=True)
         attention_mask = batch['attention_mask'].to(device, non_blocking=True)  # added non_blocking=True to speed up the code
         seq_lengths = batch['seq_lengths'].to(device, non_blocking=True)
         seq_mask = batch['seq_attention_mask'].to(device, non_blocking=True)
@@ -58,6 +59,8 @@ def train_epoch(
                 current_loss_raw = masked_mse_loss(predictions.float(), targets.float(), seq_mask)
             elif loss_fn == "combined_loss":
                 current_loss_raw = combined_loss(predictions.float(), targets.float(), seq_mask)
+            elif loss_fn == "composite_aligned_loss":
+                current_loss_raw = composite_aligned_loss(predictions.float(), targets.float(), user_ids=user_ids)
             else:
                 raise ValueError(f"Unknown loss {loss_fn}")
             

@@ -48,3 +48,58 @@ def combined_loss(predictions, targets, mask, mse_weight=0.5, ccc_weight=0.5):
     ccc = ccc_loss(predictions, targets, mask)
     
     return mse_weight * mse + ccc_weight * ccc
+
+
+def within_user_pearson(pred, targ, user_ids):
+    loss = 0
+    count = 0
+
+    for u in torch.unique(user_ids):
+        idx = user_ids == u
+        if idx.sum() < 2:
+            continue
+
+        p = pred[idx]
+        t = targ[idx]
+
+        p = p - p.mean()
+        t = t - t.mean()
+
+        corr = (p * t).sum() / (
+            torch.sqrt((p**2).sum() + 1e-8) *
+            torch.sqrt((t**2).sum() + 1e-8)
+        )
+        loss += (1 - corr)
+        count += 1
+
+    return loss / max(count, 1)
+
+
+def between_user_pearson(pred, targ, user_ids):
+    preds_u = []
+    targs_u = []
+
+    for u in torch.unique(user_ids):
+        idx = user_ids == u
+        preds_u.append(pred[idx].mean())
+        targs_u.append(targ[idx].mean())
+
+    preds_u = torch.stack(preds_u)
+    targs_u = torch.stack(targs_u)
+
+    preds_u -= preds_u.mean()
+    targs_u -= targs_u.mean()
+
+    corr = (preds_u * targs_u).sum() / (
+        torch.sqrt((preds_u**2).sum() + 1e-8) *
+        torch.sqrt((targs_u**2).sum() + 1e-8)
+    )
+
+    return 1 - corr
+
+
+def composite_aligned_loss(pred, targ, user_ids):
+    L_within = within_user_pearson(pred, targ, user_ids)
+    L_between = between_user_pearson(pred, targ, user_ids)
+
+    return 0.6 * L_within + 0.4 * L_between
