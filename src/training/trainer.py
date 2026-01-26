@@ -67,7 +67,7 @@ def train_epoch(
         # Backward with scaler
         scaler.scale(current_loss).backward()
 
-        current_loss_val = current_loss_raw.detach().float().item  # save the current non scaled loss
+        current_loss_val = current_loss_raw.detach().float().item()  # save the current non scaled loss
         
         # Gradient accumulation step
         if (step + 1) % config.accumulation_steps == 0:
