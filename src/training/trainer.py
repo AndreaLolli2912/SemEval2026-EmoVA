@@ -35,7 +35,8 @@ def train_epoch(
     
     optimizer.zero_grad(set_to_none=True)
     
-    scaler = torch.cuda.amp.GradScaler()  # FP16 safe scaling
+    # scaler = torch.cuda.amp.GradScaler()  # FP16 safe scaling
+    scaler = torch.amp.GradScaler(device)
     
     pbar = tqdm(dataloader, desc="Training", leave=False)
     
@@ -50,7 +51,7 @@ def train_epoch(
         targets = torch.stack([valences, arousals], dim=-1)
         
         # Forward + loss in AMP
-        with torch.cuda.amp.autocast():  # FP16 where safe
+        with torch.cuda.amp.autocast(device):  # FP16 where safe
             predictions = model(input_ids, attention_mask, seq_lengths, seq_mask)
             
             if loss_fn == "masked_mse_loss":
