@@ -292,12 +292,15 @@ def train(model, train_loader, val_loader, loss_fn_name, optimizer, scheduler, d
             best_val_score = val_score
             best_epoch = epoch + 1
             
+            saved_config = vars(config) if hasattr(config, '__dict__') else config.copy()
+            saved_config['epochs'] = best_epoch  # overwrite with stopping epoch 
+            
             best_checkpoint = {
                 'model_state_dict': {k: v.cpu().clone() for k, v in model.state_dict().items()},
-                'optimizer_state_dict': optimizer.state_dict(),  # <--- CHANGED THIS LINE
+                'optimizer_state_dict': optimizer.state_dict(),
                 'scheduler_state_dict': scheduler.state_dict(),
-                'epoch': epoch + 1,
-                'config': vars(config) if hasattr(config, '__dict__') else config,
+                'epoch': best_epoch,
+                'config': saved_config,  # updated config
                 'best_val_score': best_val_score,
                 'best_val_loss': val_loss,
             }
