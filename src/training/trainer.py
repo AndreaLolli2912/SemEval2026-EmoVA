@@ -66,22 +66,22 @@ def train_epoch(
                     predictions.float(), 
                     targets.float(), 
                     seq_mask, 
-                    valence_share=valence_share  # <--- Weighting applied
+                    valence_share=valence_share
                 )
             elif loss_fn_name == "ccc_loss":
                 current_loss_raw = ccc_loss(
                     predictions.float(), 
                     targets.float(), 
                     seq_mask, 
-                    valence_share=valence_share  # <--- Weighting applied
+                    valence_share=valence_share
                 )
             elif loss_fn_name == "combined_loss":
                 current_loss_raw = combined_loss(
                     predictions.float(), 
                     targets.float(), 
                     seq_mask, 
-                    mse_share=mse_share,         # <--- Loss Type Weighting
-                    valence_share=valence_share  # <--- Task Dimension Weighting
+                    mse_share=mse_share,       
+                    valence_share=valence_share
                 )
             else:
                 raise ValueError(f"Unknown loss {loss_fn_name}")
