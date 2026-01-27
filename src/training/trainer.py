@@ -237,7 +237,7 @@ def eval_epoch(
 def train(model, train_loader, val_loader, loss_fn_name, optimizer, scheduler, device, config, clipper=None, save_dir='outputs'):
     save_dir = Path(save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
-    
+    n_epochs = config.epochs
     history = {'train_loss': [], 'val_loss': [], 'val_score': []}
     
     # Track BEST SCORE (Higher is better), not best loss
@@ -273,7 +273,7 @@ def train(model, train_loader, val_loader, loss_fn_name, optimizer, scheduler, d
             scheduler.step(val_loss)
         
         # Log
-        print(f"\nEpoch {epoch + 1}/{config.epochs}")
+        print(f"\nEpoch {epoch + 1}/{n_epochs}")
         print("-" * 30)
         print(f"  Train Loss:   {train_result['loss']:.4f}")
         print(f"  Val Loss:     {val_loss:.4f}")
