@@ -294,7 +294,7 @@ def train(model, train_loader, val_loader, loss_fn_name, optimizer, scheduler, d
             
             best_checkpoint = {
                 'model_state_dict': {k: v.cpu().clone() for k, v in model.state_dict().items()},
-                'optimizer_state_dict': {k: v.cpu().clone() for k, v in optimizer.state_dict().items()},
+                'optimizer_state_dict': optimizer.state_dict(),  # <--- CHANGED THIS LINE
                 'scheduler_state_dict': scheduler.state_dict(),
                 'epoch': epoch + 1,
                 'config': vars(config) if hasattr(config, '__dict__') else config,
