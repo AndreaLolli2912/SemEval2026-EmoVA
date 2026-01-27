@@ -446,10 +446,6 @@ def collect_predictions_for_eval(
     return all_predictions, all_gold
 
 
-# =============================================================================
-# Pretty Print Results
-# =============================================================================
-
 def print_evaluation_results(results: Dict[str, float], title: str = "Evaluation Results"):
     """
     Pretty print evaluation results.
@@ -462,14 +458,14 @@ def print_evaluation_results(results: Dict[str, float], title: str = "Evaluation
     print(f"SemEval 2026 EmoVA - {title}")
     print("=" * 60)
     
-    print("\n📊 VALENCE")
+    print("\nVALENCE")
     print(f"  Between-user r:   {results['valence/r_between']:>7.4f}")
     print(f"  Within-user r:    {results['valence/r_within']:>7.4f}")
     print(f"  Composite r:      {results['valence/r_composite']:>7.4f}  ← ranking metric")
     print(f"  Between-user MAE: {results['valence/mae_between']:>7.4f}")
     print(f"  Within-user MAE:  {results['valence/mae_within']:>7.4f}")
     
-    print("\n📊 AROUSAL")
+    print("\nAROUSAL")
     print(f"  Between-user r:   {results['arousal/r_between']:>7.4f}")
     print(f"  Within-user r:    {results['arousal/r_within']:>7.4f}")
     print(f"  Composite r:      {results['arousal/r_composite']:>7.4f}  ← ranking metric")
@@ -477,7 +473,7 @@ def print_evaluation_results(results: Dict[str, float], title: str = "Evaluation
     print(f"  Within-user MAE:  {results['arousal/mae_within']:>7.4f}")
     
     print("\n" + "-" * 60)
-    print(f"🏆 OVERALL COMPOSITE r: {results['overall/r_composite']:>7.4f}")
+    print(f"OVERALL COMPOSITE r: {results['overall/r_composite']:>7.4f}")
     print("=" * 60 + "\n")
 
 
