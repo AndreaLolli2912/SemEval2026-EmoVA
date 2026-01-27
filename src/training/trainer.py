@@ -9,14 +9,14 @@ import torch
 import numpy as np
 from tqdm.auto import tqdm
 
-from src.training.losses import masked_mse_loss, combined_loss, composite_aligned_loss
+from src.training.losses import masked_mse_loss, combined_loss, composite_aligned_loss, ccc_loss
 from src.training.utils import EarlyStopping
 
 
 def train_epoch(
     model,
     dataloader,
-    loss_fn,  # "masked_mse_loss" or "combined_loss"
+    loss_fn,  # "masked_mse_loss" or "combined_loss" or "ccc_loss"
     optimizer,
     device,
     config,
@@ -59,6 +59,8 @@ def train_epoch(
                 current_loss_raw = masked_mse_loss(predictions.float(), targets.float(), seq_mask)
             elif loss_fn == "combined_loss":
                 current_loss_raw = combined_loss(predictions.float(), targets.float(), seq_mask)
+            elif loss_fn == "ccc_loss":
+                current_loss_raw = ccc_loss(predictions.float(), targets.float(), seq_mask)
             elif loss_fn == "composite_aligned_loss":
                 current_loss_raw = composite_aligned_loss(predictions.float(), targets.float(), user_ids=user_ids)
             else:
