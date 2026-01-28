@@ -11,7 +11,7 @@ class EmoVADataset(Dataset):
 
     def __init__(self, path, dtype=torch.float32, max_seq_len=16, overlap=0) :
         self.path = path
-        self.max_seq_len = max_seq_ken
+        self.max_seq_len = max_seq_len
         self.overlap = overlap # useful for the context awareness
         self.dtype = dtype
 
