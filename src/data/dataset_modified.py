@@ -61,9 +61,16 @@ class EmoVADataset(Dataset):
 
     def __getitem__(self, idx):
         data = self.samples[idx]
+        texts = data['texts']
+        valences = data['valences']
+        arousals = data['arousals']
+        
         return {
-            **data,
-            'valences': torch.from_numpy(data['valences']).to(self.dtype),
-            'arousals': torch.from_numpy(data['arousals']).to(self.dtype),
-            'seq_length': len(data['texts'])
+            'user_id': data['user_id'],
+            'text_ids': data['text_ids'],
+            'texts': texts, 
+            'timestamps': data['timestamps'],
+            'valences': torch.from_numpy(valences).to(self.dtype),
+            'arousals': torch.from_numpy(arousals).to(self.dtype),
+            'seq_length': len(texts)
         }
