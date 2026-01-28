@@ -29,7 +29,8 @@ class EmoVADataset(Dataset):
         MAX_AROUSAL = 2.0
         for user_id, group in df.groupby('user_id', sort=False):
             raw_valence = group['valence'].to_numpy(dtype=np.float32)
-            raw_arousal = group['arousal'].to_numpy(dtype=np.float32),
+            raw_arousal = group['arousal'].to_numpy(dtype=np.float32)
+            
             self.user_data.append({
                 'user_id': user_id,
                 'text_ids': group['text_id'].tolist(),
