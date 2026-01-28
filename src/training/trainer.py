@@ -331,7 +331,14 @@ def train(model, train_loader, val_loader, loss_fn_name, optimizer, scheduler, d
     torch.save(final_checkpoint, run_dir / 'final_checkpoint.pt')
     
     # Save config
-    config_dict = vars(config) if hasattr(config, '__dict__') else config
+    # --- SAVE CONFIG (SIMPLE FIX) ---
+    # 1. Grab attributes from the class type, filter out internal python stuff
+    config_dict = {k: str(v) for k, v in type(config).__dict__.items() if not k.startswith('__')}
+    
+    # 2. Update the epoch count
+    config_dict['epochs'] = best_epoch 
+    
+    # 3. Save
     with open(run_dir / 'config.json', 'w') as f:
         json.dump(config_dict, f, indent=2)
     
