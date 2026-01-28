@@ -27,12 +27,12 @@ class EmoVADataset(Dataset):
         self.samples = []
         for user_id, group in df.groupby('user_id', sort=False):
             text_ids = group['text_id'].tolist()
-            texts = group['text'].tolist(),
-            timestamps = group['timestamp'].to_numpy(),
-            collection_phases = group['collection_phase'].tolist(),
-            is_words = group['is_words'].tolist(),
-            valences = group['valence'].to_numpy(dtype=np.float32),
-            arousals = group['arousal'].to_numpy(dtype=np.float32),
+            texts = group['text'].tolist()
+            timestamps = group['timestamp'].to_numpy()
+            collection_phases = group['collection_phase'].tolist()
+            is_words = group['is_words'].tolist()
+            valences = group['valence'].to_numpy(dtype=np.float32)
+            arousals = group['arousal'].to_numpy(dtype=np.float32)
 
             total_text = len(texts)
 
