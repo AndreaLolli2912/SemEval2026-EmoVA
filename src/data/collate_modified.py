@@ -9,8 +9,8 @@ def create_collate_fn(tokenizer_wrapper, pad_value = -100.0, max_length = 128):
 
         # Flatten texts for tokenization
         all_text = []
-        all_valence = []
-        all_arousal = []
+        all_valences = []
+        all_arousals = []
         seq_lenght = []
 
         for item in batch:
