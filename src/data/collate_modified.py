@@ -17,11 +17,7 @@ def create_collate_fn(tokenizer, max_length=128):
 
         # Tokenizzazione con parametri espliciti
         tokenized = tokenizer(
-            flat_texts,
-            padding=True,
-            truncation=True,
-            max_length=max_length,
-            return_tensors='pt'
+            flat_texts
         )
         
         input_ids_flat = tokenized['input_ids']
