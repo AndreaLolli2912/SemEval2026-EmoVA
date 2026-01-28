@@ -29,7 +29,6 @@ class EmoVADataset(Dataset):
             text_ids = group['text_id'].tolist()
             texts = group['text'].tolist(),
             timestamps = group['timestamp'].to_numpy(),
-            collection_phases = group['collection_phase'].tolist(),
             is_words = group['is_words'].tolist(),
             valences = group['valence'].to_numpy(dtype=np.float32),
             arousals = group['arousal'].to_numpy(dtype=np.float32),
@@ -49,7 +48,6 @@ class EmoVADataset(Dataset):
                     'text_ids': text_ids[i:end],
                     'texts': texts[i:end],
                     'timestamps': timestamps[i:end],
-                    'collection_phases': phases[i:end],
                     'is_words': is_words[i:end],
                     'valences': valences[i:end],
                     'arousals': arousals[i:end],
