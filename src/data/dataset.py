@@ -24,9 +24,11 @@ class EmoVADataset(Dataset):
 
         self.user_data = []
 
-        # normalization between 0, 1
-        MAX_VALENCE = 4.0
-        MAX_AROUSAL = 2.0
+        # normalization [0,1] for arousal
+        VALENCE_RANGE = 4.0
+        VALENCE_MIN = -2.0
+        VALENCE_MAX = 2.0
+        AROUSAL_MAX = 2.0
         for user_id, group in df.groupby('user_id', sort=False):
             raw_valence = group['valence'].to_numpy(dtype=np.float32)
             raw_arousal = group['arousal'].to_numpy(dtype=np.float32)
@@ -38,8 +40,8 @@ class EmoVADataset(Dataset):
                 'timestamps': group['timestamp'].to_numpy(),
                 'collection_phases': group['collection_phase'].tolist(),
                 'is_words': group['is_words'].tolist(),
-                'valences': raw_valence/MAX_VALENCE,
-                'arousals': raw_arousal/MAX_AROUSAL,
+                'valences': (raw_valence-VALENCE_MIN)/VALENCE_RANGE,
+                'arousals': raw_arousal/AROUSAL_MAX,
             })
 
     def __len__(self):
