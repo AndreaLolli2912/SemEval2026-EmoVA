@@ -9,9 +9,10 @@ class EmoVADataset(Dataset):
     Each item is one user's complete temporal sequence.
     """
 
-    def __init__(self, path, dtype=torch.float32):
+    def __init__(self, path, dtype=torch.float32, constrain_output = False):
         self.path = path
         self.dtype = dtype
+        self.constrain_output = constrain_output
 
         # Load dataset
         df = pd.read_csv(path)
@@ -24,11 +25,14 @@ class EmoVADataset(Dataset):
 
         self.user_data = []
 
-        # normalization [0,1] for arousal
-        VALENCE_RANGE = 4.0
-        VALENCE_MIN = -2.0
-        VALENCE_MAX = 2.0
-        AROUSAL_MAX = 2.0
+        if self.constrain_output:
+            # normalization 
+            VALENCE_MAX = 2.0
+            AROUSAL_MAX = 2.0
+        else:
+            VALENCE_MAX = 1.0
+            AROUSAL_MAX = 1.0
+        
         for user_id, group in df.groupby('user_id', sort=False):
             raw_valence = group['valence'].to_numpy(dtype=np.float32)
             raw_arousal = group['arousal'].to_numpy(dtype=np.float32)
@@ -40,7 +44,7 @@ class EmoVADataset(Dataset):
                 'timestamps': group['timestamp'].to_numpy(),
                 'collection_phases': group['collection_phase'].tolist(),
                 'is_words': group['is_words'].tolist(),
-                'valences': (raw_valence-VALENCE_MIN)/VALENCE_RANGE,
+                'valences': raw_valence/VALENCE_MAX,
                 'arousals': raw_arousal/AROUSAL_MAX,
             })
 
