@@ -46,7 +46,7 @@ def create_collate_fn(tokenizer, max_length=128):
             valences[i, :seq_len] = item['valences']
             arousals[i, :seq_len] = item['arousals']
 
-            seq_attention_mask[i, :seq_len] = 1 
+            seq_attention_mask[i, :seq_len] = True
 
             cursor += count
 
