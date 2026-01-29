@@ -23,18 +23,14 @@ def create_collate_fn(tokenizer, max_length=128):
         input_ids_flat = tokenized['input_ids']
         attention_mask_flat = tokenized['attention_mask']
         
-        # Dimensione effettiva dei token dopo il padding del tokenizer
         max_text_len = input_ids_flat.size(1)
-
-        # Inizializzazione Tensori 3D [Batch, Time, Token]
         input_ids = torch.zeros(batch_size, max_seq_len, max_text_len, dtype=torch.long)
         attention_mask_text = torch.zeros_like(input_ids)
 
-        # Usiamo -100 per il padding delle label per sicurezza
+        # Paddinf Value -100 
         valences = torch.full((batch_size, max_seq_len), -100.0, dtype=torch.float32)
         arousals = torch.full((batch_size, max_seq_len), -100.0, dtype=torch.float32)
         
-        # Maschera temporale [Batch, Time]
         seq_attention_mask = torch.zeros(batch_size, max_seq_len, dtype=torch.long)
 
         cursor = 0
