@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-import peft
 from transformers import AutoModel
+from peft import LoraConfig, get_peft_model, TaskType
 
 class TransformerEncoder(nn.Module):
     """
