@@ -63,7 +63,7 @@ class EmoVADataset2a(Dataset):
     Select the history length of a user.
     """
 
-    def __init__(self, path, dtype=torch.float32, constrain_output = False, max_history = 10):
+    def __init__(self, path, dtype=torch.float32, constrain_output = False, max_history = 10, step = 2):
         self.path = path
         self.dtype = dtype
         self.constrain_output = constrain_output
@@ -97,7 +97,7 @@ class EmoVADataset2a(Dataset):
           target_arousal = group['state_change_arousal'].to_numpy(dtype=np.float32)
 
           num_texts = len(text_ids)
-          for i in range(num_texts):
+          for i in range(0, num_texts, step):
             # define the sliding window from start to i
             slw_start = max(0, i-self.max_history_length+1)
             slw_end = i+1
