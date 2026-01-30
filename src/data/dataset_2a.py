@@ -63,8 +63,8 @@ class EmoVADataset(Dataset):
                 'user_id': user_id,      
                 'text_id': text_ids[i],   
                 'texts': seq_texts,       
-                'input_valences': seq_vals, 
-                'input_arousals': seq_aros,
+                'valences': seq_vals, 
+                'arousals': seq_aros,
                 'target': seq_target_valence, seq_target_arousal]
                 })
     def __len__(self):
