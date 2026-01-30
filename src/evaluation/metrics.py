@@ -400,7 +400,7 @@ def evaluate_subtask2a(
             logger.info(f"Prediction range: [{all_pred.min():.3f}, {all_pred.max():.3f}]")
             logger.info(f"Gold range: [{all_gold.min():.3f}, {all_gold.max():.3f}]")
         
-   for dim in ['valence', 'arousal']:
+    for dim in ['valence', 'arousal']:
         # Average Pearson r
         avg_r = np.mean(metrics_storage[dim]['r']) if metrics_storage[dim]['r'] else 0.0
         # Average MAE
