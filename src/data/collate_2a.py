@@ -4,7 +4,7 @@ def create_collate_fn(tokenizer_wrapper, pad_value=0.0):
 
     def collate_fn(batch):
         batch_size = len(batch)
-        seq_lengths = [item['text'] for item in batch]
+        seq_lengths = [item['texts'] for item in batch]
         max_seq_len = max(seq_lengths)
 
         # Flatten texts for tokenization
