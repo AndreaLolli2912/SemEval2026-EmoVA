@@ -39,20 +39,18 @@ class TransformerEncoder(nn.Module):
     def _configure_gradients(self, r, alpha, dropout):
         if self.use_lora:
             if self.verbose: print(f"[TransformerEncoder] Applying LoRA (r={r})...")
+            bias_mode = "all" if self.fine_tune_bias else "none"
             peft_config = LoraConfig(
                 task_type=TaskType.FEATURE_EXTRACTION, 
                 inference_mode=False, 
                 r=r, 
                 lora_alpha=alpha, 
-                lora_dropout=dropout
+                lora_dropout=dropout,
+                bias = bias_mode
             )
             
             self.backbone = get_peft_model(self.backbone, peft_config)
-            
-            if self.fine_tune_bias: # LORA + BitFit
-                for name, param in self.backbone.named_parameters():
-                    if "bias" in name:
-                        param.requires_grad = True
+
         
         elif self.fine_tune_bias: 
             for name, param in self.backbone.named_parameters():
