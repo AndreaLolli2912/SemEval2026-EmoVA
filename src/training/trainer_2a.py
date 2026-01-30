@@ -1,4 +1,3 @@
-%%writefile src/training/trainer_2a.py
 import json
 from pathlib import Path
 from datetime import datetime
