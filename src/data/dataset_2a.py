@@ -54,7 +54,7 @@ class EmoVADataset(Dataset):
 
             seq_text = text[slw_start:slw_end]
             seq_valence= raw_valence[slw_start:slw_end]
-            seq_arousal=raw_arousal[[slw_start:slw_end]
+            seq_arousal=raw_arousal[slw_start:slw_end]
 
             seq_target_valence=target_valence[slw_start:slw_end]
             seq_target_arousal=target_arousal[slw_start:slw_end]
@@ -63,9 +63,9 @@ class EmoVADataset(Dataset):
                 'user_id': user_id,      
                 'text_id': text_ids[i],   
                 'texts': seq_texts,       
-                'valences': seq_vals, 
-                'arousals': seq_aros,
-                'target': seq_target_valence, seq_target_arousal]
+                'valences': seq_valence, 
+                'arousals': seq_arousal,
+                'target': [seq_target_valence, seq_target_arousal]
                 })
     def __len__(self):
         return len(self.user_data)
