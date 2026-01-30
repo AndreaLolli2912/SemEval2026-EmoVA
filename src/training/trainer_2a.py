@@ -156,7 +156,8 @@ def eval_epoch(
         'metrics': metrics,
         'score': metrics['overall/score'] 
      }
-     return result
+    
+    return result
 
 def train(model, train_loader, val_loader, loss_fn_name, optimizer, scheduler, device, config, clipper=None, save_dir='outputs_task2a'):
     save_dir = Path(save_dir)
