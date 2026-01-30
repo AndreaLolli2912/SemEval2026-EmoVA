@@ -390,7 +390,7 @@ def evaluate_subtask2a(
         r = pearson_correlation(u_pred[:, dim], u_gold[:, dim])
         if not np.isnan(r):
             metrics_storage[dim_name]['r'].append(r)
-        m = mae(u_pred[:, dim], u_gold[:, dim])=
+        m = mae(u_pred[:, dim], u_gold[:, dim])
         metric_storage[dim_name]['m'].append(m)
         
         # Validation: check for valid ranges
