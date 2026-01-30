@@ -111,8 +111,8 @@ def eval_epoch(
     total_samples = 0
     criterion = nn.MSELoss()
 
-    all_preds = []
-    all_targets = []
+    all_preds = {}
+    all_targets = {}
     
     pbar = tqdm(dataloader, desc="Evaluating Task 2a", leave=False)
     
@@ -124,6 +124,8 @@ def eval_epoch(
         history_va = batch['history_va'].to(device, non_blocking=True)
         targets = batch['targets'].to(device, non_blocking=True)
 
+        user_ids = batch['user_ids']
+
         predictions = model(input_ids, attention_mask, history_va, seq_lengths, seq_mask)
         loss = criterion(predictions, targets)
 
@@ -131,45 +133,30 @@ def eval_epoch(
         total_loss += loss.item() * batch_size
         total_samples += batch_size
 
-        all_preds.append(predictions.cpu().numpy())
-        all_targets.append(targets.cpu().numpy())
+        preds_cpu = predictions.cpu().numpy()
+        targets_cpu = targets.cpu().numpy()
 
+        for i, uid in enumerate(user_ids):
+            if uid not in all_preds:
+                all_preds[uid] = []
+                all_targets[uid] = []
+            all_preds[uid].append(preds_cpu[i])
+            all_targets[uid].append(targets_cpu[i])
+        
         pbar.set_postfix({'loss': loss.item()})
         del predictions, targets, input_ids, attention_mask, seq_lengths, history_va
 
     torch.cuda.empty_cache()
 
-    final_preds = np.concatenate(all_preds, axis=0)
-    final_gold = np.concatenate(all_targets, axis=0)
+    final_preds_dict = {u: np.array(v) for u, v in temp_preds.items()}
+    final_gold_dict = {u: np.array(v) for u, v in temp_targets.items()}
     
-    mse_valence = np.mean((final_preds[:, 0] - final_gold[:, 0])**2)
-    mse_arousal = np.mean((final_preds[:, 1] - final_gold[:, 1])**2)
-    overall_mse = (mse_valence + mse_arousal) / 2.0
-
-    def pearson_corr(x, y):
-        if np.std(x) < 1e-9 or np.std(y) < 1e-9: return 0.0
-        return np.corrcoef(x, y)[0, 1]
-
-    corr_valence = pearson_corr(final_preds[:, 0], final_gold[:, 0])
-    corr_arousal = pearson_corr(final_preds[:, 1], final_gold[:, 1])
-    overall_corr = (corr_valence + corr_arousal) / 2.0
-
-    metrics = {
-        'valence/mse': mse_valence,
-        'arousal/mse': mse_arousal,
-        'overall/mse': overall_mse,
-        'valence/corr': corr_valence,
-        'arousal/corr': corr_arousal,
-        'overall/r_composite': overall_corr 
-    }
-
     result = {
         'loss': total_loss / max(total_samples, 1),
         'metrics': metrics,
-        'score': overall_corr 
-    }
-
-    return result
+        'score': metrics['overall/score'] 
+     }
+     return result
 
 def train(model, train_loader, val_loader, loss_fn_name, optimizer, scheduler, device, config, clipper=None, save_dir='outputs_task2a'):
     save_dir = Path(save_dir)
