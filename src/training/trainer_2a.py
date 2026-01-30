@@ -41,10 +41,11 @@ def train_epoch(
         attention_mask = batch['attention_mask'].to(device, non_blocking=True)
         history_va = batch['history_va'].to(device, non_blocking=True)
         seq_lengths = batch['seq_lengths'].to(device, non_blocking=True)
+        seq_mask = batch['seq_attention_mask'].to(device, non_blocking=True)
         targets = batch['targets'].to(device, non_blocking=True)
         
         with torch.amp.autocast('cuda', enabled=(device == 'cuda')):
-            predictions = model(input_ids, attention_mask, history_va, seq_lengths)
+            predictions = model(input_ids, attention_mask, history_va, seq_lengths, seq_mask)
             current_loss_raw = criterion(predictions, targets)
             current_loss = current_loss_raw / config.accumulation_steps
         
@@ -119,10 +120,11 @@ def eval_epoch(
         input_ids = batch['input_ids'].to(device, non_blocking=True)
         attention_mask = batch['attention_mask'].to(device, non_blocking=True)
         seq_lengths = batch['seq_lengths'].to(device, non_blocking=True)
+        seq_mask = batch['seq_attention_mask'].to(device, non_blocking=True)
         history_va = batch['history_va'].to(device, non_blocking=True)
         targets = batch['targets'].to(device, non_blocking=True)
 
-        predictions = model(input_ids, attention_mask, history_va, seq_lengths)
+        predictions = model(input_ids, attention_mask, history_va, seq_lengths, seq_mask)
         loss = criterion(predictions, targets)
 
         batch_size = input_ids.size(0)
