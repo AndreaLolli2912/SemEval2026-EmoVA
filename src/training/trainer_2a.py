@@ -150,7 +150,7 @@ def eval_epoch(
 
     final_preds_dict = {u: np.array(v) for u, v in all_preds.items()}
     final_gold_dict = {u: np.array(v) for u, v in all_targets.items()}
-    
+    metrics = evaluate_subtask2a(final_preds_dict, final_gold_dict)
     result = {
         'loss': total_loss / max(total_samples, 1),
         'metrics': metrics,
