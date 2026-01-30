@@ -32,6 +32,10 @@ class AffectModel(nn.Module):
         # Encoder params
         model_path,
         encoder_bitfit=False,
+        encoder_use_lora=False,
+        lora_r=8,
+        lora_alpha=16,
+        lora_dropout=0.1,
         # Set attention params
         pma_num_seeds=4,
         isab_inducing_points=32,
@@ -57,6 +61,10 @@ class AffectModel(nn.Module):
         self.encoder = TransformerEncoder(
             model_path=model_path,
             fine_tune_bias=encoder_bitfit,
+            use_lora=encoder_use_lora,     
+            lora_r=lora_r,                 
+            lora_alpha=lora_alpha,         
+            lora_dropout=lora_dropout,     
             verbose=verbose
         )
         
