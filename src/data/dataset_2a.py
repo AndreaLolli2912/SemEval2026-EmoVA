@@ -23,7 +23,7 @@ class EmoVADataset(Dataset):
         df['timestamp'] = pd.to_datetime(df['timestamp'])
         df = df.sort_values(['user_id', 'timestamp']).reset_index(drop=True)
 
-        target_col = ['state_change_valence', 'state_change_arousal']
+        target_cols = ['state_change_valence', 'state_change_arousal']
         df = df.dropna(subset=target_cols)
 
         self.df = df
