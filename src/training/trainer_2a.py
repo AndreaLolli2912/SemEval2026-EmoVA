@@ -7,6 +7,7 @@ import torch.nn as nn
 import numpy as np
 from tqdm.auto import tqdm
 from src.training.utils import EarlyStopping
+from src.evaluation.metrics import evaluate_subtask2a
 
 def train_epoch(
     model,
@@ -188,10 +189,10 @@ def train(model, train_loader, val_loader, loss_fn_name, optimizer, scheduler, d
         print("-" * 30)
         print(f"  Train Loss:   {train_loss:.4f}")
         print(f"  Val Loss:     {val_loss:.4f}")
+        
         print(f"  Val Score:    {val_score:.4f} (Avg Pearson r)")
-        print(f"  > Valence r:  {metrics['valence/corr']:.4f}")
-        print(f"  > Arousal r:  {metrics['arousal/corr']:.4f}")
-        print(f"  LR: {optimizer.param_groups[-1]['lr']:.2e}")
+        print(f"  > Valence:    r={metrics['valence/r_per_user']:.4f} | MAE={metrics['valence/mae']:.4f}")
+        print(f"  > Arousal:    r={metrics['arousal/r_per_user']:.4f} | MAE={metrics['arousal/mae']:.4f}")
         
         history['train_loss'].append(train_loss)
         history['val_loss'].append(val_loss)
