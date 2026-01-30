@@ -12,28 +12,70 @@ class TransformerEncoder(nn.Module):
         verbose: If True, print shapes and flow information
     """
     
-    def __init__(self, model_path, fine_tune_bias=False, verbose=False):
+    def __init__(self, model_path, 
+                 fine_tune_bias=False, 
+                 use_lora=False,
+                 lora_r=8,
+                 lora_alpha=16,
+                 lora_dropout=0.1,
+                 verbose=False):
         super().__init__()
         
         self.verbose = verbose
         self.fine_tune_bias = fine_tune_bias
+        self.use_lora = use_lora
         self.backbone = AutoModel.from_pretrained(model_path)
         self.hidden_size = self.backbone.config.hidden_size
         
-        self._configure_gradients()
+        self._configure_gradients(lora_r, lora_alpha,lora_dropout)
 
         if self.verbose:
             print(f"[TransformerEncoder] Loaded: {model_path}")
             print(f"[TransformerEncoder] Hidden size: {self.hidden_size}")
             print(f"[TransformerEncoder] Backbone frozen: True\n")
+            print(f"[TransformerEncoder] Config: LoRA={use_lora}, BitFit={fine_tune_bias}")
     
     def _configure_gradients(self):
-        for name, param in self.backbone.named_parameters():
-            if self.fine_tune_bias and "bias" in name:
-                param.requires_grad = True
-            else:
+        if self.use_lora:
+            if self.verbose: print(f"[TransformerEncoder] Applying LoRA (r={r})...")
+            peft_config = LoraConfig(
+                task_type=TaskType.FEATURE_EXTRACTION, 
+                inference_mode=False, 
+                r=r, 
+                lora_alpha=alpha, 
+                lora_dropout=dropout
+            )
+            
+            self.backbone = get_peft_model(self.backbone, peft_config)
+            
+            if self.fine_tune_bias: # LORA + BitFit
+                for name, param in self.backbone.named_parameters():
+                    if "bias" in name:
+                        param.requires_grad = True
+        
+        elif self.fine_tune_bias: 
+            for name, param in self.backbone.named_parameters():
+                if self.fine_tune_bias and "bias" in name:
+                    param.requires_grad = True
+                else:
+                    param.requires_grad = False
+        else:
+            for param in self.backbone.parameters():
                 param.requires_grad = False
-        self.backbone.eval()
+                
+        # for name, param in self.backbone.named_parameters():
+        #
+        #    if self.fine_tune_bias and "bias" in name:
+        #
+        #        param.requires_grad = True
+        #
+        #    else:
+        #    
+        #        param.requires_grad = False
+            
+        # self.backbone.eval()
+
+
 
     def train(self, mode=True):
         """
@@ -42,7 +84,11 @@ class TransformerEncoder(nn.Module):
         to prevent noise, even though we are updating bias params.
         """
         super().train(mode)
-        self.backbone.eval()
+
+        if self.use_lora: 
+            pass
+        else: 
+            self.backbone.eval()
         return self
     
     def forward(self, input_ids, attention_mask):
