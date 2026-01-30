@@ -8,7 +8,7 @@ from src.models.lstm import LSTMEncoder
 from src.models.heads import PredictionHead
 
 
-class AffectModel(nn.Module):
+class AffectModel2a(nn.Module):
     """
     Full model: Transformer -> ISAB -> PMA -> LSTM -> Prediction Head
     
