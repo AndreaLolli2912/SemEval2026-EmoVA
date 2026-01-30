@@ -148,8 +148,8 @@ def eval_epoch(
 
     torch.cuda.empty_cache()
 
-    final_preds_dict = {u: np.array(v) for u, v in temp_preds.items()}
-    final_gold_dict = {u: np.array(v) for u, v in temp_targets.items()}
+    final_preds_dict = {u: np.array(v) for u, v in all_preds.items()}
+    final_gold_dict = {u: np.array(v) for u, v in all_targets.items()}
     
     result = {
         'loss': total_loss / max(total_samples, 1),
