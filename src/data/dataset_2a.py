@@ -65,8 +65,7 @@ class EmoVADataset(Dataset):
                 'target': [tgt_val, tgt_aro]
                 })
     def __len__(self):
-        return len(self.user_data)
+        return len(self.samples)
 
     def __getitem__(self, idx):
-        data = self.user_data[idx]
-        return data
+        return self.samples[idx]
