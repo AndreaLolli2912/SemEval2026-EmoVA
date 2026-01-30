@@ -48,7 +48,7 @@ def train_epoch(
             predictions = model(input_ids, attention_mask, history_va, seq_lengths)
             
             # --- 2. PASS WEIGHTS TO LOSS FUNCTIONS ---
-           current_loss_raw = criterion(predictions, targets)
+            current_loss_raw = criterion(predictions, targets)
              
             
             current_loss = current_loss_raw / config.accumulation_steps
