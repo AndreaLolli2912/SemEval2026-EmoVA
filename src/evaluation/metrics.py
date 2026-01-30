@@ -371,7 +371,7 @@ def evaluate_subtask2a(
                       'arousal': {'r': [], 'mae': []}
                      }
 
-    for user_id in prediction.keys():
+    for user_id in predictions.keys():
         u_pred = predictions[user_id]
         u_gold = gold[user_id]
         
