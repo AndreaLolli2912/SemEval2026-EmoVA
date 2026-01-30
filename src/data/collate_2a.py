@@ -4,12 +4,11 @@ def create_collate_fn(tokenizer_wrapper, pad_value=0.0):
 
     def collate_fn(batch):
         batch_size = len(batch)
-        seq_lengths = [item['seq_length'] for item in batch]
+        seq_lengths = [item['text'] for item in batch]
         max_seq_len = max(seq_lengths)
 
         # Flatten texts for tokenization
         flat_texts = []
-        seq_lengths = []
         targets = []
         history_list_seq = []
         user_ids = []
@@ -18,11 +17,10 @@ def create_collate_fn(tokenizer_wrapper, pad_value=0.0):
         for item in batch:
             texts = item['texts']
             flat_texts.extend(texts)
-            seq_lengths.append(len(item['texts']))
             targets.append(item['target'])
 
-            valence = torch.tensor(item['valnce'])
-            arousal = torch.tensor(item['arousal'])
+            valence = torch.tensor(item['valences'])
+            arousal = torch.tensor(item['arousals'])
 
             history_list_seq.append(torch.stack([valence,arousal],dim=1))
 
@@ -70,7 +68,7 @@ def create_collate_fn(tokenizer_wrapper, pad_value=0.0):
             'text_ids': text_ids,
             'input_ids': input_ids,  # [B, T, L]
             'attention_mask': attention_mask_text,  # [B, T, L]
-            'history':history_list,
+            'history_va':history_list,
             'seq_attention_mask': seq_attention_mask,  # [B, T]
             'seq_lengths': torch.tensor(seq_lengths, dtype=torch.long),  
             'targets': torch.tensor(targets, dtype=torch.float32)
