@@ -391,14 +391,8 @@ def evaluate_subtask2a(
             if not np.isnan(r):
                 metrics_storage[dim_name]['r'].append(r)
             m = mae(u_pred[:, dim], u_gold[:, dim])
-            metric_storage[dim_name]['mae'].append(m)
-        
-        # Validation: check for valid ranges
-        if verbose:
-            all_pred = np.concatenate(list(pred_dim.values()))
-            all_gold = np.concatenate(list(gold_dim.values()))
-            logger.info(f"Prediction range: [{all_pred.min():.3f}, {all_pred.max():.3f}]")
-            logger.info(f"Gold range: [{all_gold.min():.3f}, {all_gold.max():.3f}]")
+            metrics_storage[dim_name]['mae'].append(m)
+
         
     for dim in ['valence', 'arousal']:
         # Average Pearson r
