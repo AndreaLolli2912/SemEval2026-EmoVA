@@ -21,8 +21,8 @@ def create_collate_fn(tokenizer_wrapper, pad_value=0.0):
             seq_lengths.append(len(item['texts']))
             targets.append(item['target'])
 
-            valence = torch.tensor(item['input_valence'])
-            arousal = torch.tensor(item['input_arousal'])
+            valence = torch.tensor(item['valnce'])
+            arousal = torch.tensor(item['arousal'])
 
             history_list_seq.append(torch.stack([valence,arousal],dim=1))
 
@@ -44,7 +44,7 @@ def create_collate_fn(tokenizer_wrapper, pad_value=0.0):
         )
         attention_mask_text = torch.zeros_like(input_ids)
 
-        hhistory_list = torch.zeros(
+        history_list = torch.zeros(
             batch_size, max_seq_len, 2, dtype=torch.float32
         )
 
@@ -53,7 +53,7 @@ def create_collate_fn(tokenizer_wrapper, pad_value=0.0):
         # Fill tensors
         cursor = 0
         for i, item in enumerate(batch):
-            seq_len = seq_length[i]
+            seq_len = seq_lengths[i]
 
             input_ids[i, :seq_len] = input_ids_flat[cursor:cursor + seq_len]
             attention_mask_text[i, :seq_len] = attention_mask_flat[cursor:cursor + seq_len]
@@ -72,7 +72,8 @@ def create_collate_fn(tokenizer_wrapper, pad_value=0.0):
             'attention_mask': attention_mask_text,  # [B, T, L]
             'history':history_list,
             'seq_attention_mask': seq_attention_mask,  # [B, T]
-            'seq_lengths': torch.tensor(seq_lengths, dtype=torch.long),   
+            'seq_lengths': torch.tensor(seq_lengths, dtype=torch.long),  
+            'targets': torch.tensor(targets, dtype=torch.float32)
         }
 
     return collate_fn
