@@ -139,4 +139,4 @@ def eval_epoch(
     for batch in pbar:
         input_ids = batch['input_ids'].to(device, non_blocking=True)
         attention_mask = batch['attention_mask'].to(device, non_blocking=True)
-        seq_lengths = batch['seq_lengths'].to(device, non_blocking
+        seq_lengths = batch['seq_lengths'].to(device, non_blocking)
