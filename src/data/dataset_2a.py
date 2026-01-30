@@ -35,11 +35,8 @@ class EmoVADataset(Dataset):
         AROUSAL_MAX = 2.0 # arousal new range [0,1]
         
         for user_id, group in df.groupby('user_id', sort=False):
-          text_ids = group['text_id'].tolist(),
-          texts = group['text'].tolist(),
-          timestamps = group['timestamp'].to_numpy(),
-          collection_phases = group['collection_phase'].tolist(),
-          is_words = group['is_words'].tolist(),
+          text_ids = group['text_id'].tolist()
+          texts = group['text'].tolist()
           raw_valence = group['valence'].to_numpy(dtype=np.float32)
           raw_arousal = group['arousal'].to_numpy(dtype=np.float32)
 
@@ -52,20 +49,20 @@ class EmoVADataset(Dataset):
             slw_start = max(0, i-self.max_history_length+1)
             slw_end = i+1
 
-            seq_text = text[slw_start:slw_end]
+            seq_text = texts[slw_start:slw_end]
             seq_valence= raw_valence[slw_start:slw_end]
             seq_arousal=raw_arousal[slw_start:slw_end]
 
-            seq_target_valence=target_valence[slw_start:slw_end]
-            seq_target_arousal=target_arousal[slw_start:slw_end]
+            tgt_val = target_valence[i]
+            tgt_aro = target_arousal[i]
 
             self.samples.append({
                 'user_id': user_id,      
                 'text_id': text_ids[i],   
-                'texts': seq_texts,       
+                'texts': seq_text,      
                 'valences': seq_valence, 
                 'arousals': seq_arousal,
-                'target': [seq_target_valence, seq_target_arousal]
+                'target': [tgt_val, tgt_aro]
                 })
     def __len__(self):
         return len(self.user_data)
