@@ -367,10 +367,10 @@ def evaluate_subtask2a(
                    f"mean={np.mean(texts_per_user):.1f}")
     
     results = {}
-    metric_storage = {'valence': {'r': [], 'mae': []},
+    metrics_storage = {'valence': {'r': [], 'mae': []},
                       'arousal': {'r': [], 'mae': []}
                      }
-
+    skipped_users = 0
     for user_id in predictions.keys():
         u_pred = predictions[user_id]
         u_gold = gold[user_id]
@@ -380,18 +380,18 @@ def evaluate_subtask2a(
             skipped_users += 1
             continue
     
-    for dim, dim_name in enumerate(['valence', 'arousal']):
-        if verbose:
-            logger.info(f"\n{'='*40}")
-            logger.info(f"Evaluating {dim_name.upper()}")
-            logger.info(f"{'='*40}")
-            
-        # Pearson r
-        r = pearson_correlation(u_pred[:, dim], u_gold[:, dim])
-        if not np.isnan(r):
-            metrics_storage[dim_name]['r'].append(r)
-        m = mae(u_pred[:, dim], u_gold[:, dim])
-        metric_storage[dim_name]['m'].append(m)
+        for dim, dim_name in enumerate(['valence', 'arousal']):
+            if verbose:
+                logger.info(f"\n{'='*40}")
+                logger.info(f"Evaluating {dim_name.upper()}")
+                logger.info(f"{'='*40}")
+                
+            # Pearson r
+            r = pearson_correlation(u_pred[:, dim], u_gold[:, dim])
+            if not np.isnan(r):
+                metrics_storage[dim_name]['r'].append(r)
+            m = mae(u_pred[:, dim], u_gold[:, dim])
+            metric_storage[dim_name]['mae'].append(m)
         
         # Validation: check for valid ranges
         if verbose:
@@ -566,7 +566,6 @@ def collect_predictions_subtask2a(
                 single_pred = preds[i]    # [2]
                 single_gold = targets[i]  # [2]
                 
-                # Inizializza liste se nuovo utente
                 if user_id not in temp_preds:
                     all_preds[user_id] = []
                     all_gold[user_id] = []
@@ -576,8 +575,8 @@ def collect_predictions_subtask2a(
             
 
     # Convert lists to numpy arrays
-    final_preds = {u: np.array(v) for u, v in temp_preds.items()}
-    final_gold = {u: np.array(v) for u, v in temp_gold.items()}
+    final_preds = {u: np.array(v) for u, v in all_preds.items()}
+    final_gold = {u: np.array(v) for u, v in all_gold.items()}
     
     if verbose:
         logger.info(f"\nCollection complete (Task 2A):")
