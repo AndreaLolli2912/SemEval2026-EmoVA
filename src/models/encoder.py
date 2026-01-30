@@ -46,7 +46,8 @@ class TransformerEncoder(nn.Module):
                 r=r, 
                 lora_alpha=alpha, 
                 lora_dropout=dropout,
-                bias = bias_mode
+                bias = bias_mode,
+                use_dora=True
             )
             
             self.backbone = get_peft_model(self.backbone, peft_config)
