@@ -3,7 +3,7 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset
 
-class EmoVADataset(Dataset):
+class EmoVADataset2a(Dataset):
     """
     Dataset for longitudinal affect assessment.
     Each item is one user's complete temporal sequence.
