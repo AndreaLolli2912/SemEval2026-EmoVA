@@ -46,7 +46,7 @@ class EmoVADataset(Dataset):
           target_valence = group['state_change_valence'].to_numpy(dtype=np.float32)
           target_arousal = group['state_change_arousal'].to_numpy(dtype=np.float32)
 
-          num_texts = len(texts_ids)
+          num_texts = len(text_ids)
           for i in range(num_texts):
             # define the sliding window from start to i
             slw_start = max(0, i-self.max_history_length+1)
