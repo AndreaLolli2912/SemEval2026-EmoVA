@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import peft
 from transformers import AutoModel
 
 class TransformerEncoder(nn.Module):
