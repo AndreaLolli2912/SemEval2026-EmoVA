@@ -35,7 +35,7 @@ class AffectModel(nn.Module):
         encoder_use_lora=False,
         lora_r=8,
         lora_alpha=16,
-        lora_bias = None,
+        lora_bias = 'none',
         lora_dropout=0.1,
         # Set attention params
         pma_num_seeds=4,
