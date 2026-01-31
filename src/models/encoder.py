@@ -18,6 +18,7 @@ class TransformerEncoder(nn.Module):
                  use_lora=False,
                  lora_r=8,
                  lora_alpha=16,
+                 lora_bias=None,
                  lora_dropout=0.1,
                  verbose=False):
         super().__init__()
@@ -28,7 +29,7 @@ class TransformerEncoder(nn.Module):
         self.backbone = AutoModel.from_pretrained(model_path)
         self.hidden_size = self.backbone.config.hidden_size
         
-        self._configure_gradients(lora_r, lora_alpha,lora_dropout)
+        self._configure_gradients(lora_r, lora_alpha,lora_bias, lora_dropout)
 
         if self.verbose:
             print(f"[TransformerEncoder] Loaded: {model_path}")
@@ -39,14 +40,13 @@ class TransformerEncoder(nn.Module):
     def _configure_gradients(self, r, alpha, dropout):
         if self.use_lora:
             if self.verbose: print(f"[TransformerEncoder] Applying LoRA (r={r})...")
-            bias_mode = "all" if self.fine_tune_bias else "none"
             peft_config = LoraConfig(
                 task_type=TaskType.FEATURE_EXTRACTION, 
                 inference_mode=False, 
                 r=r, 
                 lora_alpha=alpha, 
                 lora_dropout=dropout,
-                bias = bias_mode,
+                bias = lora_bias,
                 target_modules="all-linear",
                 use_dora=True
             )
