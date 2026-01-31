@@ -83,16 +83,21 @@ class AffectModel(nn.Module):
             self.isab = None
         
         # 3. PMA (pooling)
-        self.pma = PMA(
-            hidden_size=hidden_size,
-            n_heads=n_heads,
-            n_seeds=pma_num_seeds,
-            dropout=dropout,
-            verbose=verbose
-        )
+        if pma_num_seeds is not None and pma_num_seeds > 0:
+            self.pma = PMA(
+                hidden_size=hidden_size,
+                n_heads=n_heads,
+                n_seeds=pma_num_seeds,
+                dropout=dropout,
+                verbose=verbose
+            )
+            text_dim = hidden_size * pma_num_seeds
+        else:
+            self.pma = None
+            text_dim = hidden_size
         
         # 4. LSTM encoder
-        lstm_input_dim = hidden_size * pma_num_seeds
+        lstm_input_dim = text_dim
         
         self.lstm = LSTMEncoder(
             input_dim=lstm_input_dim,
@@ -118,7 +123,16 @@ class AffectModel(nn.Module):
             print(f"  PMA: {pma_num_seeds} seeds")
             print(f"  LSTM: input={lstm_input_dim}, hidden={lstm_hidden_dim}, layers={lstm_num_layers}, bidir={lstm_bidirectional}")
             print(f"  Head: output=2, constrain_output={constrain_output}\n")
+
     
+    def _mean_pooling(self, token_embeddings, attention_mask):
+        input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
+    
+        sum_embeddings = torch.sum(token_embeddings * input_mask_expanded, 1)
+        sum_mask = torch.clamp(input_mask_expanded.sum(1), min=1e-9)
+        
+        return sum_embeddings / sum_mask
+
     def forward(self, input_ids, attention_mask, seq_lengths, seq_mask):
         """
         Args:
@@ -165,19 +179,29 @@ class AffectModel(nn.Module):
                 print(f"    tokens (enriched): {tokens.shape}\n")
         
         # 4. PMA (pool to fixed size)
-        emb_flat = self.pma(tokens, padding_mask)  # [N_valid, pma_num_seeds, H]
+        if self.pma is not None:
+            emb_flat = self.pma(tokens, padding_mask) # [N_valid, pma_num_seeds, H]
+            emb_flat = emb_flat.view(emb_flat.size(0), -1)
+        else:
+            emb_flat = self._mean_pooling(tokens, attention_mask_flat)
         
         if self.verbose:
             print(f"\n  Step 4: PMA pooling")
             print(f"    emb_flat: {emb_flat.shape}\n")
         
         # 5. Reconstruct padded tensor
-        emb = torch.zeros(
+        '''emb = torch.zeros(
             B, S, *emb_flat.shape[1:],
             device=emb_flat.device, dtype=emb_flat.dtype
         )
         emb[mask] = emb_flat
-        emb = emb.view(B, S, -1)  # [B, S, pma_num_seeds * H]
+        emb = emb.view(B, S, -1)  # [B, S, pma_num_seeds * H]'''
+
+        emb = torch.zeros(
+            B, S, emb_flat.size(-1), # Prende l'ultima dimensione automaticamente
+            device=emb_flat.device, dtype=emb_flat.dtype
+        )
+        emb[mask] = emb_flat
         
         if self.verbose:
             print(f"\n  Step 5: Reconstruct for LSTM")
@@ -264,16 +288,21 @@ class AffectModel2a(nn.Module):
             self.isab = None
         
         # 3. PMA (pooling)
-        self.pma = PMA(
-            hidden_size=hidden_size,
-            n_heads=n_heads,
-            n_seeds=pma_num_seeds,
-            dropout=dropout,
-            verbose=verbose
-        )
+        if pma_num_seeds is not None and pma_num_seeds > 0:
+            self.pma = PMA(
+                hidden_size=hidden_size,
+                n_heads=n_heads,
+                n_seeds=pma_num_seeds,
+                dropout=dropout,
+                verbose=verbose
+            )
+            text_dim = hidden_size * pma_num_seeds
+        else:
+            self.pma = None
+            text_dim = hidden_size
         
         # 4. LSTM encoder
-        lstm_input_dim = (hidden_size * pma_num_seeds) + 2
+        lstm_input_dim = text_dim + 2
         
         self.lstm = LSTMEncoder(
             input_dim=lstm_input_dim,
@@ -298,15 +327,22 @@ class AffectModel2a(nn.Module):
             print(f"\n[AffectModel2a] Initialized")
             print(f"  Encoder: {model_path}")
             print(f"  LSTM Input Dim: {lstm_input_dim} (Text + 2 history)")
-
+    
+    def _mean_pooling(self, token_embeddings, attention_mask):
+        input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
+    
+        sum_embeddings = torch.sum(token_embeddings * input_mask_expanded, 1)
+        sum_mask = torch.clamp(input_mask_expanded.sum(1), min=1e-9)
+        
+        return sum_embeddings / sum_mask
     def forward(self, input_ids, attention_mask, history_va, seq_lengths, seq_mask):
         """
         Args:
             input_ids: [B, S, T]
             attention_mask: [B, S, T]
-            history_va: [B, S, 2] <--- AGGIUNTO QUESTO
+            history_va: [B, S, 2]
             seq_lengths: [B]
-            seq_mask: [B, S] (Serve per appiattire il batch per il Transformer)
+            seq_mask: [B, S]
         """
         B, S, T = input_ids.shape
         mask = seq_mask.bool()
@@ -323,15 +359,23 @@ class AffectModel2a(nn.Module):
             tokens = self.isab(tokens, padding_mask)
         
         # --- 4. PMA Pooling ---
-        emb_flat = self.pma(tokens, padding_mask)  # [N_valid, pma_num_seeds, H]
+         if self.pma is not None:
+            emb_flat = self.pma(tokens, padding_mask) # [N_valid, pma_num_seeds, H]
+            emb_flat = emb_flat.view(emb_flat.size(0), -1)
+        else:
+            emb_flat = self._mean_pooling(tokens, attention_mask_flat)
         
-        # --- 5. Reconstruct padded tensor (N_valid -> Batch * Seq) ---
+        if self.verbose:
+            print(f"\n  Step 4: PMA pooling")
+            print(f"    emb_flat: {emb_flat.shape}\n")
+        
+        # 5. Reconstruct padded tensor
         emb = torch.zeros(
-            B, S, *emb_flat.shape[1:],
+            B, S, emb_flat.size(-1), # Prende l'ultima dimensione automaticamente
             device=emb_flat.device, dtype=emb_flat.dtype
         )
-
         emb[mask] = emb_flat
+        
         
         # Flattening dei seed PMA: [B, S, pma_num_seeds * H]
         emb = emb.view(B, S, -1) 
