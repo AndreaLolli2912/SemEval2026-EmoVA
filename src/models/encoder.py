@@ -18,7 +18,6 @@ class TransformerEncoder(nn.Module):
                  use_lora=False,
                  lora_r=8,
                  lora_alpha=16,
-                 lora_bias='none',
                  lora_dropout=0.1,
                  verbose=False):
         super().__init__()
@@ -29,7 +28,7 @@ class TransformerEncoder(nn.Module):
         self.backbone = AutoModel.from_pretrained(model_path)
         self.hidden_size = self.backbone.config.hidden_size
         
-        self._configure_gradients(lora_r, lora_alpha,lora_bias, lora_dropout)
+        self._configure_gradients(lora_r, lora_alpha, lora_dropout)
 
         if self.verbose:
             print(f"[TransformerEncoder] Loaded: {model_path}")
@@ -37,13 +36,9 @@ class TransformerEncoder(nn.Module):
             print(f"[TransformerEncoder] Backbone frozen: True\n")
             print(f"[TransformerEncoder] Config: LoRA={use_lora}, BitFit={fine_tune_bias}")
     
-    def _configure_gradients(self, r, alpha, bias_mode, dropout):
+    def _configure_gradients(self, r, alpha, dropout):
         if self.use_lora:
             if self.verbose: print(f"[TransformerEncoder] Applying LoRA (r={r})...")
-            if self.fine_tune_bias:
-                current_bias = bias_mode if bias_mode else 'all'
-            else:
-                current_bias = 'none'
                 
             peft_config = LoraConfig(
                 task_type=TaskType.FEATURE_EXTRACTION, 
@@ -51,12 +46,18 @@ class TransformerEncoder(nn.Module):
                 r=r, 
                 lora_alpha=alpha, 
                 lora_dropout=dropout,
-                bias = current_bias,
+                bias = 'none',
                 target_modules="all-linear",
                 use_dora=True
             )
             
             self.backbone = get_peft_model(self.backbone, peft_config)
+
+            if self.fine_tune_bias:
+                if self.verbose: print("[TransformerEncoder] Manually unfreezing BIAS terms after LoRA...")
+                for name, param in self.backbone.named_parameters():
+                    if "bias" in name:
+                        param.requires_grad = True
 
         
         elif self.fine_tune_bias: 
