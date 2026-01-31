@@ -339,6 +339,76 @@ def evaluate_subtask1(
     
     return results
 
+
+def evaluate_subtask2a(
+    predictions: Dict[str, np.ndarray],
+    gold: Dict[str, np.ndarray],
+    min_samples: int = 2,
+    verbose: bool = False
+) -> Dict[str, float]:
+    """
+    Complete evaluation for Subtask 2a (Forecasting)
+    
+    Args:
+        predictions: Dict mapping user_id to array of shape [n_texts, 2] (predicted state chage)
+        gold: Dict mapping user_id to array of shape [n_windows, 2] (Actual State Change)
+        verbose: If True, log detailed debug information
+    """
+    # Validation
+    
+    assert set(predictions.keys()) == set(gold.keys()), \
+        "User IDs don't match between predictions and gold"
+    
+    if verbose:
+        n_users = len(predictions)
+        total_texts = sum(p.shape[0] for p in predictions.values())
+        texts_per_user = [p.shape[0] for p in predictions.values()]
+        logger.info(f"Evaluating {n_users} users, {total_texts} total texts")
+        logger.info(f"Texts per user: min={min(texts_per_user)}, max={max(texts_per_user)}, "
+                   f"mean={np.mean(texts_per_user):.1f}")
+    
+    results = {}
+    metrics_storage = {'valence': {'r': [], 'mae': []},
+                      'arousal': {'r': [], 'mae': []}
+                     }
+    skipped_users = 0
+    for user_id in predictions.keys():
+        u_pred = predictions[user_id]
+        u_gold = gold[user_id]
+        
+        # Check samples count
+        if len(u_pred) < min_samples:
+            skipped_users += 1
+            continue
+    
+        for dim, dim_name in enumerate(['valence', 'arousal']):
+            if verbose:
+                logger.info(f"\n{'='*40}")
+                logger.info(f"Evaluating {dim_name.upper()}")
+                logger.info(f"{'='*40}")
+                
+            # Pearson r
+            r = pearson_correlation(u_pred[:, dim], u_gold[:, dim])
+            if not np.isnan(r):
+                metrics_storage[dim_name]['r'].append(r)
+            m = mae(u_pred[:, dim], u_gold[:, dim])
+            metrics_storage[dim_name]['mae'].append(m)
+
+        
+    for dim in ['valence', 'arousal']:
+        # Average Pearson r
+        avg_r = np.mean(metrics_storage[dim]['r']) if metrics_storage[dim]['r'] else 0.0
+        # Average MAE
+        avg_mae = np.mean(metrics_storage[dim]['mae']) if metrics_storage[dim]['mae'] else 0.0
+        
+        results[f'{dim}/r_per_user'] = avg_r
+        results[f'{dim}/mae'] = avg_mae
+
+    # Overall Score (Average of Valence R and Arousal R)
+    results['overall/score'] = (results['valence/r_per_user'] + results['arousal/r_per_user']) / 2.0
+    
+    return results
+
 # =============================================================================
 # Helper: Convert batch predictions to evaluation format
 # =============================================================================
@@ -444,6 +514,77 @@ def collect_predictions_for_eval(
     
     return all_predictions, all_gold
 
+def collect_predictions_subtask2a(
+    model,
+    dataloader,
+    device,
+    verbose: bool = False
+) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
+    """
+    Collect predictions for Task 2A (Forecasting).
+    Enhanced version with validation and logging.
+    """
+    model.eval()
+    
+    all_preds = {}
+    all_gold = {}
+    
+    total_samples = 0
+    
+    with torch.no_grad():
+        for batch_idx, batch in enumerate(dataloader):
+            # Move inputs to device
+            input_ids = batch['input_ids'].to(device)
+            attention_mask = batch['attention_mask'].to(device)
+            history_va = batch['history_va'].to(device)
+            seq_lengths = batch['seq_lengths'].to(device)
+            seq_mask = batch['seq_attention_mask'].to(device)
+            
+            # Gold targets 
+            targets = batch['targets'].numpy() # [Batch, 2]
+            user_ids = batch['user_ids']       # List[str]
+            
+            # Forward Pass
+            preds = model(input_ids, attention_mask, history_va, seq_lengths, seq_mask)
+            preds = preds.cpu().numpy()        # [Batch, 2]
+            
+            batch_size = preds.shape[0]
+            total_samples += batch_size
+            
+            assert preds.shape == targets.shape, \
+                f"Batch shape mismatch: preds {preds.shape} vs targets {targets.shape}"
+            assert preds.shape[1] == 2, \
+                f"Output dim mismatch: expected 2 (V,A), got {preds.shape[1]}"
+            
+            # Group by User
+            for i, user_id in enumerate(user_ids):
+                single_pred = preds[i]    # [2]
+                single_gold = targets[i]  # [2]
+                
+                if user_id not in all_preds:
+                    all_preds[user_id] = []
+                    all_gold[user_id] = []
+                
+                all_preds[user_id].append(single_pred)
+                all_gold[user_id].append(single_gold)
+            
+
+    # Convert lists to numpy arrays
+    final_preds = {u: np.array(v) for u, v in all_preds.items()}
+    final_gold = {u: np.array(v) for u, v in all_gold.items()}
+    
+    if verbose:
+        logger.info(f"\nCollection complete (Task 2A):")
+        logger.info(f"  Total samples (windows): {total_samples}")
+        logger.info(f"  Unique users: {len(final_preds)}")
+        
+        for uid in final_preds:
+            p_shape = final_preds[uid].shape
+            g_shape = final_gold[uid].shape
+            assert p_shape == g_shape, f"User {uid} mismatch: {p_shape} vs {g_shape}"
+    
+    return final_preds, final_gold
+
 
 def print_evaluation_results(results: Dict[str, float], title: str = "Evaluation Results"):
     """
@@ -473,6 +614,31 @@ def print_evaluation_results(results: Dict[str, float], title: str = "Evaluation
     
     print("\n" + "-" * 60)
     print(f"OVERALL COMPOSITE r: {results['overall/r_composite']:>7.4f}")
+    print("=" * 60 + "\n")
+
+def print_results_subtask2a(results: Dict[str, float], title: str = "Subtask 2A Results"):
+    """
+    Pretty print evaluation results for Subtask 2A (Forecasting).
+    
+    Args:
+        results: Dictionary from evaluate_subtask2a()
+        title: Title for the output
+    """
+    print("\n" + "=" * 60)
+    print(f"SemEval 2026 EmoVA - {title}")
+    print("=" * 60)
+    
+    print("\nVALENCE")
+    print(f"  Avg Per-User r:   {results['valence/r_per_user']:>7.4f}")
+    print(f"  Avg Per-User MAE: {results['valence/mae']:>7.4f}")
+    
+    print("\nAROUSAL")
+    print(f"  Avg Per-User r:   {results['arousal/r_per_user']:>7.4f}")
+    print(f"  Avg Per-User MAE: {results['arousal/mae']:>7.4f}")
+    
+    print("\n" + "-" * 60)
+    # Nella Task 2, il ranking è dato dalla media delle correlazioni V e A
+    print(f"OVERALL SCORE (Mean r): {results['overall/score']:>7.4f}  ← ranking metric")
     print("=" * 60 + "\n")
 
 # =============================================================================
