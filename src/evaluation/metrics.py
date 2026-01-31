@@ -560,7 +560,7 @@ def collect_predictions_subtask2a(
                 single_pred = preds[i]    # [2]
                 single_gold = targets[i]  # [2]
                 
-                if user_id not in temp_preds:
+                if user_id not in all_preds:
                     all_preds[user_id] = []
                     all_gold[user_id] = []
                 
