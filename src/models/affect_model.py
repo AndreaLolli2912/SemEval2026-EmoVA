@@ -359,7 +359,7 @@ class AffectModel2a(nn.Module):
             tokens = self.isab(tokens, padding_mask)
         
         # --- 4. PMA Pooling ---
-         if self.pma is not None:
+        if self.pma is not None:
             emb_flat = self.pma(tokens, padding_mask) # [N_valid, pma_num_seeds, H]
             emb_flat = emb_flat.view(emb_flat.size(0), -1)
         else:
