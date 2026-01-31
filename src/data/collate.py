@@ -143,7 +143,7 @@ def create_collate_fn_2a(tokenizer_wrapper, pad_value=0.0):
             'history_va':history_list,
             'seq_attention_mask': seq_attention_mask,  # [B, T]
             'seq_lengths': torch.tensor(seq_lengths, dtype=torch.long),  
-            'targets': torch.stack(targets) if torch.is_tensor(targets) else torch.tensor(targets, dtype=torch.float32)
+            'targets': torch.stack(targets)
         }
 
     return collate_fn
