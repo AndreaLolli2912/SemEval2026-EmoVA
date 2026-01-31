@@ -51,7 +51,7 @@ class TransformerEncoder(nn.Module):
                 r=r, 
                 lora_alpha=alpha, 
                 lora_dropout=dropout,
-                bias = bias_mode,
+                bias = current_bias,
                 target_modules="all-linear",
                 use_dora=True
             )
