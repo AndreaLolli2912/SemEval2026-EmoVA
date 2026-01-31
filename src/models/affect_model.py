@@ -389,12 +389,18 @@ class AffectModel2a(nn.Module):
         
         # --- 7. Select Last Valid State (Forecasting) ---
         batch_idx = torch.arange(B, device=lstm_out.device)
-        # Usiamo clamp(min=0) per sicurezza
         last_idx = (seq_lengths - 1).clamp(min=0) 
         
         last_hidden_state = lstm_out[batch_idx, last_idx, :]
         
         # --- 8. Prediction Head ---
         predictions = self.head(last_hidden_state) # [B, 2]
+
+        # added for improve results
+        # last value
+        prev_value = history_va[batch_idx, last_idx, :]
+
+        # prediction
+        final_pred = prev_value + predictions
         
-        return predictions
+        return final_pred
