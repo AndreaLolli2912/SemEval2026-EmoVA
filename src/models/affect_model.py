@@ -395,12 +395,5 @@ class AffectModel2a(nn.Module):
         
         # --- 8. Prediction Head ---
         predictions = self.head(last_hidden_state) # [B, 2]
-
-        # added for improve results
-        # last value
-        prev_value = history_va[batch_idx, last_idx, :]
-
-        # prediction
-        final_pred = prev_value + predictions
         
-        return final_pred
+        return predictions
