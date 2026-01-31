@@ -37,16 +37,17 @@ class TransformerEncoder(nn.Module):
             print(f"[TransformerEncoder] Backbone frozen: True\n")
             print(f"[TransformerEncoder] Config: LoRA={use_lora}, BitFit={fine_tune_bias}")
     
-    def _configure_gradients(self, r, alpha, dropout):
+    def _configure_gradients(self, r, alpha, bias_mode, dropout):
         if self.use_lora:
             if self.verbose: print(f"[TransformerEncoder] Applying LoRA (r={r})...")
+            if not self.fine_tune_bias: bias_mode = None
             peft_config = LoraConfig(
                 task_type=TaskType.FEATURE_EXTRACTION, 
                 inference_mode=False, 
                 r=r, 
                 lora_alpha=alpha, 
                 lora_dropout=dropout,
-                bias = lora_bias,
+                bias = bias_mode,
                 target_modules="all-linear",
                 use_dora=True
             )
