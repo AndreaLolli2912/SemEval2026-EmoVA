@@ -315,12 +315,13 @@ class AffectModel2a(nn.Module):
 
         lstm_output_dim = self.lstm.output_dim
 
+        head_dim =  lstm_output_dim + 2
         # 5. Prediction head
         self.head = nn.Sequential(
               nn.Dropout(dropout),
-              nn.Linear(lstm_output_dim, lstm_output_dim // 2),
+              nn.Linear(head_dim, head_dim // 2),
               nn.ReLU(),                                      
-              nn.Linear(lstm_output_dim // 2, 2)                      
+              nn.Linear(head_dim // 2, 2)                      
         )
         
         if self.verbose:
@@ -392,8 +393,12 @@ class AffectModel2a(nn.Module):
         last_idx = (seq_lengths - 1).clamp(min=0) 
         
         last_hidden_state = lstm_out[batch_idx, last_idx, :]
+
+        # retrieve the last known values
+        last_known_value = history_va[batch_idx, last_idx, :] # [B, 2]
         
         # --- 8. Prediction Head ---
-        predictions = self.head(last_hidden_state) # [B, 2]
+        head_input = torch.cat([last_hidden_state, last_known_value], dim=-1) # [B, Hidden + 2]
+        predictions = self.head(head_input) # [B, 2]
         
         return predictions
