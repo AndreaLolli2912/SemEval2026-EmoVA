@@ -65,7 +65,7 @@ class AffectModel(nn.Module):
             use_lora=encoder_use_lora,     
             lora_r=lora_r,                 
             lora_alpha=lora_alpha, 
-            lora_bias = lora_bias
+            lora_bias = lora_bias,
             lora_dropout=lora_dropout,     
             verbose=verbose
         )
