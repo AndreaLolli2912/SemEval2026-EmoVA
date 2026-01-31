@@ -192,13 +192,6 @@ class AffectModel(nn.Module):
             print(f"    emb_flat: {emb_flat.shape}\n")
         
         # 5. Reconstruct padded tensor
-        '''emb = torch.zeros(
-            B, S, *emb_flat.shape[1:],
-            device=emb_flat.device, dtype=emb_flat.dtype
-        )
-        emb[mask] = emb_flat
-        emb = emb.view(B, S, -1)  # [B, S, pma_num_seeds * H]'''
-
         emb = torch.zeros(
             B, S, emb_flat.size(-1), # Prende l'ultima dimensione automaticamente
             device=emb_flat.device, dtype=emb_flat.dtype
