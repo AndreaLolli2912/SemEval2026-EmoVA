@@ -26,6 +26,3 @@ cd SemEval2026-EmoVA
 ## Architecture
 
 BERT → ISAB → PMA → BiLSTM → Prediction Head
-  year={2026}
-}
-```
