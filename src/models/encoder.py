@@ -18,7 +18,7 @@ class TransformerEncoder(nn.Module):
                  use_lora=False,
                  lora_r=8,
                  lora_alpha=16,
-                 lora_bias=None,
+                 lora_bias='none',
                  lora_dropout=0.1,
                  verbose=False):
         super().__init__()
@@ -40,7 +40,11 @@ class TransformerEncoder(nn.Module):
     def _configure_gradients(self, r, alpha, bias_mode, dropout):
         if self.use_lora:
             if self.verbose: print(f"[TransformerEncoder] Applying LoRA (r={r})...")
-            if not self.fine_tune_bias: bias_mode = None
+            if self.fine_tune_bias:
+                current_bias = bias_mode if bias_mode else 'all'
+            else:
+                current_bias = 'none'
+                
             peft_config = LoraConfig(
                 task_type=TaskType.FEATURE_EXTRACTION, 
                 inference_mode=False, 
