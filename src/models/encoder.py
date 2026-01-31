@@ -79,7 +79,7 @@ class TransformerEncoder(nn.Module):
         #    
         #        param.requires_grad = False
             
-        self.backbone.eval()
+        # self.backbone.eval()
 
 
 
@@ -91,11 +91,11 @@ class TransformerEncoder(nn.Module):
         """
         super().train(mode)
 
-        #if self.use_lora: 
-        #    pass
-        #else: 
-        #    self.backbone.eval()
-        self.backbone.eval()
+        if self.use_lora: 
+            pass
+        else: 
+            self.backbone.eval()
+        #self.backbone.eval()
         return self
     
     def forward(self, input_ids, attention_mask):
