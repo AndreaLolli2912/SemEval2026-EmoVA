@@ -103,8 +103,13 @@ class EmoVADataset2a(Dataset):
             slw_end = i+1
 
             seq_text = texts[slw_start:slw_end]
+              
             seq_valence= raw_valence[slw_start:slw_end]
             seq_arousal=raw_arousal[slw_start:slw_end]
+
+            if self.constrain_output:
+                seq_valence = seq_valence/VALENCE_MAX
+                seq_arousal = seq_arousal/AROUSAL_MAX
 
             tgt_val = target_valence[i]
             tgt_aro = target_arousal[i]
@@ -121,4 +126,12 @@ class EmoVADataset2a(Dataset):
         return len(self.samples)
 
     def __getitem__(self, idx):
-        return self.samples[idx]
+        sample = self.samples[idx]
+        return {
+            'user_id': sample['user_id'],
+            'text_id': sample['text_id'],
+            'valences': torch.tensor(sample['valences'], dtype=self.dtype),
+            'arousals': torch.tensor(sample['arousals'], dtype=self.dtype),
+            'texts': sample['texts'], 
+            'target': torch.tensor(sample['target'], dtype=self.dtype)
+        }
