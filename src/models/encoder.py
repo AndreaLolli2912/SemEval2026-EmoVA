@@ -69,20 +69,6 @@ class TransformerEncoder(nn.Module):
             for param in self.backbone.parameters():
                 param.requires_grad = False
                 
-        # for name, param in self.backbone.named_parameters():
-        #
-        #    if self.fine_tune_bias and "bias" in name:
-        #
-        #        param.requires_grad = True
-        #
-        #    else:
-        #    
-        #        param.requires_grad = False
-            
-        # self.backbone.eval()
-
-
-
     def train(self, mode=True):
         """
         Override to manage backbone state.
@@ -95,7 +81,6 @@ class TransformerEncoder(nn.Module):
             pass
         else: 
             self.backbone.eval()
-        #self.backbone.eval()
         return self
     
     def forward(self, input_ids, attention_mask):
