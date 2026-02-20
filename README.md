@@ -1,6 +1,6 @@
 # SemEval-2026 Task 2: EmoVA
 
-This repository contains the model architecture for the SemEval-2026 Task 2: EmoVA (Predicting Variation in Emotional Valence and Arousal over Time from Ecological Essays) challenge.
+This repository contains the model architecture of our solution for the SemEval-2026 Task 2: EmoVA (Predicting Variation in Emotional Valence and Arousal over Time from Ecological Essays) challenge.
 
 ## System Description
 
@@ -58,3 +58,4 @@ The forecasting model extends the base architecture to predict future emotional 
 * **`SEMEVAL2026_EMOVA_ABLATION_2a.ipynb`**: Execution notebook for ablation studies specific to the Subtask 2a forecasting models.
 * **`SEMEVAL2026_EMOVA_SUBMISSION.ipynb`**: Final inference notebook used to format predictions for Codabench submission.
 * **`SemEval2026_EmoVA.pdf`**: System description paper detailing the architecture and experimental methodology.
+
