@@ -1,110 +1,69 @@
-<mxfile host="app.diagrams.net" modified="2026-02-25T00:00:00.000Z" agent="Claude" version="24.0.0" type="device">
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36 Edg/145.0.0.0" version="29.5.3">
   <diagram id="architecture" name="AffectModel Architecture">
-    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" math="0" shadow="0">
+    <mxGraphModel dx="1066" dy="520" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-
-        <!-- INPUT -->
-        <mxCell id="input" value="&lt;b&gt;INPUT&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;(B, S, L) Tokens&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;fontFamily=Helvetica;shadow=1;arcSize=20;" vertex="1" parent="1">
-          <mxGeometry x="350" y="30" width="220" height="50" as="geometry" />
+        <mxCell id="input" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;fontFamily=Helvetica;shadow=1;arcSize=20;direction=west;rotation=-90;strokeWidth=2;" value="&lt;b&gt;INPUT&lt;/b&gt;&lt;br&gt;&lt;font&gt;(B, S, L) Tokens&lt;/font&gt;" vertex="1">
+          <mxGeometry height="40" width="150" x="202" y="367" as="geometry" />
         </mxCell>
-
-        <!-- Arrow: Input -> Encoder -->
-        <mxCell id="arr1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2;strokeColor=#333333;" edge="1" source="input" target="encoder" parent="1">
+        <mxCell id="arr1" edge="1" parent="1" source="input" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2;strokeColor=#333333;fontSize=13;" target="encoder">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <!-- TRANSFORMER ENCODER -->
-        <mxCell id="encoder" value="&lt;b&gt;Transformer Encoder&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;(BERT-base, Frozen)&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;fontFamily=Helvetica;shadow=1;" vertex="1" parent="1">
-          <mxGeometry x="310" y="120" width="240" height="55" as="geometry" />
-        </mxCell>
-
-        <!-- PEFT box -->
-        <mxCell id="peft" value="&lt;b&gt;PEFT&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;BitFit / DoRA, r=16&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontFamily=Helvetica;shadow=1;dashed=1;dashPattern=8 4;" vertex="1" parent="1">
-          <mxGeometry x="600" y="120" width="150" height="55" as="geometry" />
-        </mxCell>
-
-        <!-- Arrow: Encoder <-> PEFT -->
-        <mxCell id="arr_peft" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=1.5;strokeColor=#b85450;dashed=1;dashPattern=6 4;" edge="1" source="encoder" target="peft" parent="1">
+        <mxCell id="_nrQ78LwY4dep8TtaUqF-4" edge="1" parent="1" source="encoder" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;fontSize=13;" target="setatt_group">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <!-- Shape annotation under encoder -->
-        <mxCell id="shape1" value="&lt;font style=&quot;font-size:11px;color:#666666;&quot;&gt;(B, S, L, H=768) Contextualized Tokens&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;fontFamily=Helvetica;" vertex="1" parent="1">
-          <mxGeometry x="330" y="178" width="250" height="25" as="geometry" />
+        <mxCell id="encoder" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;fontFamily=Helvetica;shadow=1;rotation=-90;strokeWidth=2;" value="&lt;b&gt;Transformer Encoder&lt;/b&gt;&lt;br&gt;&lt;font&gt;(BERT-base, Frozen)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="55" width="177" x="258.5" y="359.5" as="geometry" />
         </mxCell>
-
-        <!-- Arrow: Encoder -> Set Attention group -->
-        <mxCell id="arr2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2;strokeColor=#333333;" edge="1" source="encoder" target="setatt_group" parent="1">
+        <mxCell id="peft" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;fontFamily=Helvetica;shadow=1;dashed=1;dashPattern=8 4;rotation=0;" value="&lt;b&gt;PEFT&lt;/b&gt;&lt;br&gt;&lt;font&gt;BitFit / DoRA, (r=16, alpha=32)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="55" width="175" x="259.5" y="210" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_peft" edge="1" parent="1" source="encoder" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=1.5;strokeColor=#b85450;dashed=1;dashPattern=6 4;fontSize=13;" target="peft">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <!-- SET ATTENTION AGGREGATION group -->
-        <mxCell id="setatt_group" value="&lt;b style=&quot;font-size:13px;&quot;&gt;Set Attention Aggregation&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;fontFamily=Helvetica;shadow=1;verticalAlign=top;spacingTop=5;align=center;" vertex="1" parent="1">
-          <mxGeometry x="260" y="220" width="400" height="120" as="geometry" />
+        <mxCell id="setatt_group" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;fontFamily=Helvetica;shadow=1;verticalAlign=top;spacingTop=5;align=center;rotation=-90;strokeWidth=2;" value="&lt;b&gt;Set Attention Aggregation&lt;/b&gt;" vertex="1">
+          <mxGeometry height="103" width="191.55" x="378.73" y="335.78" as="geometry" />
         </mxCell>
-
-        <!-- ISAB inside group -->
-        <mxCell id="isab" value="&lt;b&gt;ISAB&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;(Optional, m=32)&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;fontFamily=Helvetica;dashed=1;dashPattern=8 4;" vertex="1" parent="1">
-          <mxGeometry x="290" y="265" width="120" height="50" as="geometry" />
+        <mxCell id="isab" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;fontFamily=Helvetica;dashed=1;dashPattern=8 4;rotation=-90;strokeWidth=2;" value="&lt;b&gt;ISAB (opional)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="45" width="69.5" x="452.03" y="417" as="geometry" />
         </mxCell>
-
-        <!-- PMA inside group -->
-        <mxCell id="pma" value="&lt;b&gt;PMA&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;(k=8)&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
-          <mxGeometry x="470" y="265" width="120" height="50" as="geometry" />
+        <mxCell id="pma" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;fontFamily=Helvetica;rotation=-90;strokeWidth=2;" value="&lt;b&gt;PMA&lt;/b&gt;" vertex="1">
+          <mxGeometry height="28.12" width="70.94" x="444.03" y="320" as="geometry" />
         </mxCell>
-
-        <!-- Arrow: ISAB -> PMA -->
-        <mxCell id="arr_isab_pma" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=1.5;strokeColor=#d6b656;dashed=1;dashPattern=6 4;" edge="1" source="isab" target="pma" parent="1">
+        <mxCell id="arr_isab_pma" edge="1" parent="1" source="isab" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=1.5;strokeColor=#d6b656;dashed=1;dashPattern=6 4;fontSize=13;" target="pma">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <!-- Shape annotation under Set Attention -->
-        <mxCell id="shape2a" value="&lt;font style=&quot;font-size:11px;color:#666666;&quot;&gt;(B, S, k*H) Flattened Doc Embeddings&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;fontFamily=Helvetica;" vertex="1" parent="1">
-          <mxGeometry x="345" y="343" width="230" height="25" as="geometry" />
-        </mxCell>
-
-        <!-- Arrow: Set Attention -> LSTM -->
-        <mxCell id="arr3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2;strokeColor=#333333;" edge="1" source="setatt_group" target="lstm" parent="1">
+        <mxCell id="arr3" edge="1" parent="1" source="setatt_group" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2;strokeColor=#333333;fontSize=13;" target="lstm">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <!-- LSTM -->
-        <mxCell id="lstm" value="&lt;b&gt;LSTM&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;(1 layer, hidden=256)&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontFamily=Helvetica;shadow=1;" vertex="1" parent="1">
-          <mxGeometry x="330" y="395" width="240" height="55" as="geometry" />
+        <mxCell id="lstm" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontFamily=Helvetica;shadow=1;rotation=-90;strokeWidth=2;" value="&lt;b&gt;LSTM&lt;/b&gt;&lt;br&gt;&lt;font&gt;(1 layer, hidden=256)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="55" width="240" x="481" y="359.5" as="geometry" />
         </mxCell>
-
-        <!-- Shape annotation under LSTM -->
-        <mxCell id="shape2b" value="&lt;font style=&quot;font-size:11px;color:#666666;&quot;&gt;(B, S, 256) Temporal States&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;fontFamily=Helvetica;" vertex="1" parent="1">
-          <mxGeometry x="375" y="453" width="180" height="25" as="geometry" />
-        </mxCell>
-
-        <!-- Arrow: LSTM -> Head -->
-        <mxCell id="arr4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2;strokeColor=#333333;" edge="1" source="lstm" target="head" parent="1">
+        <mxCell id="arr4" edge="1" parent="1" source="lstm" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2;strokeColor=#333333;fontSize=13;" target="head">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <!-- PREDICTION HEAD -->
-        <mxCell id="head" value="&lt;b&gt;Prediction Head&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;(Linear, 256 &amp;rarr; 2)&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;fontFamily=Helvetica;shadow=1;" vertex="1" parent="1">
-          <mxGeometry x="340" y="500" width="220" height="50" as="geometry" />
-        </mxCell>
-
-        <!-- Shape annotation under head -->
-        <mxCell id="shape3" value="&lt;font style=&quot;font-size:11px;color:#666666;&quot;&gt;(B, S, 2)&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;fontFamily=Helvetica;" vertex="1" parent="1">
-          <mxGeometry x="420" y="553" width="70" height="25" as="geometry" />
-        </mxCell>
-
-        <!-- Arrow: Head -> Output -->
-        <mxCell id="arr5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2;strokeColor=#333333;" edge="1" source="head" target="output" parent="1">
+        <mxCell id="_nrQ78LwY4dep8TtaUqF-5" edge="1" parent="1" source="head" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;fontSize=13;" target="output">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <!-- OUTPUT -->
-        <mxCell id="output" value="&lt;b&gt;OUTPUT&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Valence, Arousal&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;fontFamily=Helvetica;shadow=1;arcSize=20;" vertex="1" parent="1">
-          <mxGeometry x="360" y="590" width="200" height="50" as="geometry" />
+        <mxCell id="head" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;fontFamily=Helvetica;shadow=1;rotation=-90;strokeWidth=2;" value="&lt;b&gt;Prediction Head&lt;/b&gt;&lt;br&gt;&lt;font&gt;(Linear, 256 → 2)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="50" width="220" x="596" y="362" as="geometry" />
         </mxCell>
-
+        <mxCell id="output" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;fontFamily=Helvetica;shadow=1;arcSize=20;rotation=-90;strokeWidth=2;" value="&lt;b&gt;OUTPUT&lt;/b&gt;&lt;br&gt;&lt;font&gt;Valence, Arousal&lt;/font&gt;" vertex="1">
+          <mxGeometry height="50" width="200" x="699" y="362" as="geometry" />
+        </mxCell>
+        <mxCell id="shape2b" parent="1" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;fontFamily=Helvetica;rotation=-90;labelBackgroundColor=default;fontStyle=1;fontSize=13;" value="&lt;font style=&quot;color: rgb(102, 102, 102);&quot;&gt;(B, S, 256) Temporal States&lt;/font&gt;" vertex="1">
+          <mxGeometry height="30" width="180" x="565" y="372.5" as="geometry" />
+        </mxCell>
+        <mxCell id="shape3" parent="1" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;fontFamily=Helvetica;rotation=-90;labelBackgroundColor=default;fontStyle=1;fontSize=13;" value="&lt;font style=&quot;color: rgb(102, 102, 102);&quot;&gt;(B, S, 2)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="30" width="70" x="713" y="372.5" as="geometry" />
+        </mxCell>
+        <mxCell id="shape1" parent="1" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;fontFamily=Helvetica;rotation=-90;labelBackgroundColor=default;fontStyle=1;fontSize=13;" value="&lt;font style=&quot;color: rgb(102, 102, 102);&quot;&gt;(B, S, L, H=768) Contextualized Tokens&lt;/font&gt;" vertex="1">
+          <mxGeometry height="30" width="250" x="273" y="372.5" as="geometry" />
+        </mxCell>
+        <mxCell id="shape2a" parent="1" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;fontFamily=Helvetica;rotation=-90;labelBackgroundColor=default;fontStyle=1;fontSize=13;" value="&lt;font style=&quot;color: rgb(102, 102, 102);&quot;&gt;(B, S, k*H) Flattened Doc Embeddings&lt;/font&gt;" vertex="1">
+          <mxGeometry height="30" width="250" x="423" y="380" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>

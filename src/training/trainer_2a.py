@@ -165,7 +165,11 @@ def train(model, train_loader, val_loader, loss_fn_name, optimizer, scheduler, d
     save_dir.mkdir(parents=True, exist_ok=True)
     
     n_epochs = config.epochs
-    history = {'train_loss': [], 'val_loss': [], 'val_score': []}
+    history = {
+        'train_loss': [], 'val_loss': [], 'val_score': [],
+        'valence_r_per_user': [], 'valence_mae': [],
+        'arousal_r_per_user': [], 'arousal_mae': [],
+    }
     
     best_val_score = -1.0 
     best_epoch = 0
@@ -197,6 +201,10 @@ def train(model, train_loader, val_loader, loss_fn_name, optimizer, scheduler, d
         history['train_loss'].append(train_loss)
         history['val_loss'].append(val_loss)
         history['val_score'].append(val_score)
+        history['valence_r_per_user'].append(metrics['valence/r_per_user'])
+        history['valence_mae'].append(metrics['valence/mae'])
+        history['arousal_r_per_user'].append(metrics['arousal/r_per_user'])
+        history['arousal_mae'].append(metrics['arousal/mae'])
         
         if val_score > best_val_score:
             best_val_score = val_score
@@ -243,10 +251,25 @@ def train(model, train_loader, val_loader, loss_fn_name, optimizer, scheduler, d
     with open(run_dir / 'config.json', 'w') as f:
         json.dump(config_dict, f, indent=2)
     
+    # Save results JSON with best-epoch metrics for easy access
+    best_idx = best_epoch - 1
+    results = {
+        'best_epoch': best_epoch,
+        'train_loss': history['train_loss'][best_idx],
+        'val_loss': history['val_loss'][best_idx],
+        'val_score': history['val_score'][best_idx],
+        'valence_r_per_user': history['valence_r_per_user'][best_idx],
+        'valence_mae': history['valence_mae'][best_idx],
+        'arousal_r_per_user': history['arousal_r_per_user'][best_idx],
+        'arousal_mae': history['arousal_mae'][best_idx],
+    }
+    with open(run_dir / 'results.json', 'w') as f:
+        json.dump(results, f, indent=2)
+
     print(f"\n{'='*50}")
     print(f"Training complete!")
     print(f"  Best Val Score: {best_val_score:.4f} (Epoch {best_epoch})")
     print(f"  Saved to: {run_dir}")
     print(f"{'='*50}")
-    
+
     return history, run_dir

@@ -238,7 +238,13 @@ def train(model, train_loader, val_loader, loss_fn_name, optimizer, scheduler, d
     save_dir = Path(save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
     n_epochs = config.epochs
-    history = {'train_loss': [], 'val_loss': [], 'val_score': []}
+    history = {
+        'train_loss': [], 'val_loss': [], 'val_score': [],
+        'valence_r_between': [], 'valence_r_within': [], 'valence_r_composite': [],
+        'valence_mae_between': [], 'valence_mae_within': [],
+        'arousal_r_between': [], 'arousal_r_within': [], 'arousal_r_composite': [],
+        'arousal_mae_between': [], 'arousal_mae_within': [],
+    }
     
     # Track BEST SCORE (Higher is better), not best loss
     best_val_score = -1.0 
@@ -286,6 +292,16 @@ def train(model, train_loader, val_loader, loss_fn_name, optimizer, scheduler, d
         history['train_loss'].append(train_result['loss'])
         history['val_loss'].append(val_loss)
         history['val_score'].append(val_score)
+        history['valence_r_between'].append(metrics['valence/r_between'])
+        history['valence_r_within'].append(metrics['valence/r_within'])
+        history['valence_r_composite'].append(metrics['valence/r_composite'])
+        history['valence_mae_between'].append(metrics['valence/mae_between'])
+        history['valence_mae_within'].append(metrics['valence/mae_within'])
+        history['arousal_r_between'].append(metrics['arousal/r_between'])
+        history['arousal_r_within'].append(metrics['arousal/r_within'])
+        history['arousal_r_composite'].append(metrics['arousal/r_composite'])
+        history['arousal_mae_between'].append(metrics['arousal/mae_between'])
+        history['arousal_mae_within'].append(metrics['arousal/mae_within'])
         
         # Track best model based on SCORE
         if val_score > best_val_score:
@@ -342,10 +358,31 @@ def train(model, train_loader, val_loader, loss_fn_name, optimizer, scheduler, d
     with open(run_dir / 'config.json', 'w') as f:
         json.dump(config_dict, f, indent=2)
     
+    # Save results JSON with best-epoch metrics for easy access
+    best_idx = best_epoch - 1
+    results = {
+        'best_epoch': best_epoch,
+        'train_loss': history['train_loss'][best_idx],
+        'val_loss': history['val_loss'][best_idx],
+        'val_score': history['val_score'][best_idx],
+        'valence_r_between': history['valence_r_between'][best_idx],
+        'valence_r_within': history['valence_r_within'][best_idx],
+        'valence_r_composite': history['valence_r_composite'][best_idx],
+        'valence_mae_between': history['valence_mae_between'][best_idx],
+        'valence_mae_within': history['valence_mae_within'][best_idx],
+        'arousal_r_between': history['arousal_r_between'][best_idx],
+        'arousal_r_within': history['arousal_r_within'][best_idx],
+        'arousal_r_composite': history['arousal_r_composite'][best_idx],
+        'arousal_mae_between': history['arousal_mae_between'][best_idx],
+        'arousal_mae_within': history['arousal_mae_within'][best_idx],
+    }
+    with open(run_dir / 'results.json', 'w') as f:
+        json.dump(results, f, indent=2)
+
     print(f"\n{'='*50}")
     print(f"Training complete!")
     print(f"  Best Val Score: {best_val_score:.4f} (Epoch {best_epoch})")
     print(f"  Saved to: {run_dir}")
     print(f"{'='*50}")
-    
+
     return history, run_dir
