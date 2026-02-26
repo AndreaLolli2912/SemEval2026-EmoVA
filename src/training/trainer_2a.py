@@ -174,17 +174,32 @@ def train(model, train_loader, val_loader, loss_fn_name, optimizer, scheduler, d
     
     scaler = torch.amp.GradScaler("cuda")
 
+    # Warmup: save target LRs per param group, start from 0
+    warmup_epochs = getattr(config, 'warmup_epochs', 0)
+    target_lrs = [pg['lr'] for pg in optimizer.param_groups]
+    if warmup_epochs > 0:
+        for pg in optimizer.param_groups:
+            pg['lr'] = 0.0
+
     for epoch in range(config.epochs):
+
+        # Linear warmup: ramp LR from 0 to target over warmup_epochs
+        if warmup_epochs > 0 and epoch < warmup_epochs:
+            warmup_factor = (epoch + 1) / warmup_epochs
+            for pg, target_lr in zip(optimizer.param_groups, target_lrs):
+                pg['lr'] = target_lr * warmup_factor
+
         train_result = train_epoch(model, train_loader, optimizer, device, config, clipper, scaler)
         val_result = eval_epoch(model, val_loader, device, config)
-        
+
         train_loss = train_result['loss']
         val_loss = val_result['loss']
         val_score = val_result['score']
         metrics = val_result['metrics']
-        
-        if scheduler:
-            scheduler.step(val_loss)
+
+        # Only let ReduceLROnPlateau kick in after warmup
+        if scheduler and epoch >= warmup_epochs:
+            scheduler.step(val_score)
         
         print(f"\nEpoch {epoch + 1}/{n_epochs}")
         print("-" * 30)
