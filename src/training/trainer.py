@@ -307,8 +307,8 @@ def train(model, train_loader, val_loader, loss_fn_name, optimizer, scheduler, d
         history['arousal_mae_between'].append(metrics['arousal/mae_between'])
         history['arousal_mae_within'].append(metrics['arousal/mae_within'])
         
-        # Track best model based on SCORE
-        if val_score > best_val_score:
+        # Track best model based on SCORE after warmup
+        if al_score > best_val_score and epoch >= warmup_epochs:
             best_val_score = val_score
             best_epoch = epoch + 1
             
