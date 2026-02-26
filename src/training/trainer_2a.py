@@ -6,7 +6,6 @@ import torch
 import torch.nn as nn
 import numpy as np
 from tqdm.auto import tqdm
-from src.training.utils import EarlyStopping
 from src.evaluation.metrics import evaluate_subtask2a
 
 def train_epoch(
@@ -173,7 +172,6 @@ def train(model, train_loader, val_loader, loss_fn_name, optimizer, scheduler, d
     best_epoch = 0
     best_checkpoint = None
     
-    early_stopping = EarlyStopping(patience=config.patience, mode='max')
     scaler = torch.amp.GradScaler("cuda")
 
     for epoch in range(config.epochs):
@@ -222,10 +220,6 @@ def train(model, train_loader, val_loader, loss_fn_name, optimizer, scheduler, d
                 'best_val_loss': val_loss,
             }
             print(f"  ✓ New best model found (Score: {best_val_score:.4f})")
-        
-        if early_stopping(val_score):
-            print(f"\nEarly stopping at epoch {epoch + 1}")
-            break
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_name = f"{timestamp}_score{best_val_score:.4f}" 
@@ -254,13 +248,13 @@ def train(model, train_loader, val_loader, loss_fn_name, optimizer, scheduler, d
     best_idx = best_epoch - 1
     results = {
         'best_epoch': best_epoch,
-        'train_loss': history['train_loss'][best_idx],
-        'val_loss': history['val_loss'][best_idx],
-        'val_score': history['val_score'][best_idx],
-        'valence_r_per_user': history['valence_r_per_user'][best_idx],
-        'valence_mae': history['valence_mae'][best_idx],
-        'arousal_r_per_user': history['arousal_r_per_user'][best_idx],
-        'arousal_mae': history['arousal_mae'][best_idx],
+        'train_loss': float(history['train_loss'][best_idx]),
+        'val_loss': float(history['val_loss'][best_idx]),
+        'val_score': float(history['val_score'][best_idx]),
+        'valence_r_per_user': float(history['valence_r_per_user'][best_idx]),
+        'valence_mae': float(history['valence_mae'][best_idx]),
+        'arousal_r_per_user': float(history['arousal_r_per_user'][best_idx]),
+        'arousal_mae': float(history['arousal_mae'][best_idx]),
     }
     with open(run_dir / 'results.json', 'w') as f:
         json.dump(results, f, indent=2)

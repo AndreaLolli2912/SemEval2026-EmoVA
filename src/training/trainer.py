@@ -11,7 +11,6 @@ from tqdm.auto import tqdm
 
 # Import your new losses
 from src.training.losses import masked_mse_loss, combined_loss, ccc_loss
-from src.training.utils import EarlyStopping
 
 # Import the evaluation logic
 from src.evaluation.metrics import evaluate_subtask1
@@ -251,11 +250,6 @@ def train(model, train_loader, val_loader, loss_fn_name, optimizer, scheduler, d
     best_epoch = 0
     best_checkpoint = None
     
-    # Early stopping usually monitors loss, but for this task, 
-    # monitoring the composite score is safer.
-    # We invert score because EarlyStopping expects 'min' by default, 
-    # or we can set mode='max'. Let's assume your EarlyStopping supports mode='max'.
-    early_stopping = EarlyStopping(patience=config.patience, mode='max')
     scaler = torch.amp.GradScaler("cuda")
 
     for epoch in range(config.epochs):
@@ -322,11 +316,6 @@ def train(model, train_loader, val_loader, loss_fn_name, optimizer, scheduler, d
                 'best_val_loss': val_loss,
             }
             print(f"  ✓ New best model found (Score: {best_val_score:.4f})")
-        
-        # Early stopping check (monitor Score)
-        if early_stopping(val_score):
-            print(f"\nEarly stopping at epoch {epoch + 1}")
-            break
     
     # Save best model
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -363,19 +352,19 @@ def train(model, train_loader, val_loader, loss_fn_name, optimizer, scheduler, d
     best_idx = best_epoch - 1
     results = {
         'best_epoch': best_epoch,
-        'train_loss': history['train_loss'][best_idx],
-        'val_loss': history['val_loss'][best_idx],
-        'val_score': history['val_score'][best_idx],
-        'valence_r_between': history['valence_r_between'][best_idx],
-        'valence_r_within': history['valence_r_within'][best_idx],
-        'valence_r_composite': history['valence_r_composite'][best_idx],
-        'valence_mae_between': history['valence_mae_between'][best_idx],
-        'valence_mae_within': history['valence_mae_within'][best_idx],
-        'arousal_r_between': history['arousal_r_between'][best_idx],
-        'arousal_r_within': history['arousal_r_within'][best_idx],
-        'arousal_r_composite': history['arousal_r_composite'][best_idx],
-        'arousal_mae_between': history['arousal_mae_between'][best_idx],
-        'arousal_mae_within': history['arousal_mae_within'][best_idx],
+        'train_loss': float(history['train_loss'][best_idx]),
+        'val_loss': float(history['val_loss'][best_idx]),
+        'val_score': float(history['val_score'][best_idx]),
+        'valence_r_between': float(history['valence_r_between'][best_idx]),
+        'valence_r_within': float(history['valence_r_within'][best_idx]),
+        'valence_r_composite': float(history['valence_r_composite'][best_idx]),
+        'valence_mae_between': float(history['valence_mae_between'][best_idx]),
+        'valence_mae_within': float(history['valence_mae_within'][best_idx]),
+        'arousal_r_between': float(history['arousal_r_between'][best_idx]),
+        'arousal_r_within': float(history['arousal_r_within'][best_idx]),
+        'arousal_r_composite': float(history['arousal_r_composite'][best_idx]),
+        'arousal_mae_between': float(history['arousal_mae_between'][best_idx]),
+        'arousal_mae_within': float(history['arousal_mae_within'][best_idx]),
     }
     with open(run_dir / 'results.json', 'w') as f:
         json.dump(results, f, indent=2)
