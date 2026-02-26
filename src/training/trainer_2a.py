@@ -16,6 +16,7 @@ def train_epoch(
     device,
     config,
     clipper=None,
+    scaler=None,
     collect_preds=False,
     max_collect_samples=5000,
 ):
@@ -30,9 +31,6 @@ def train_epoch(
     collected = 0
 
     criterion = nn.MSELoss()
-    
-    # Scaler per Mixed Precision
-    scaler = torch.cuda.amp.GradScaler(enabled=(device == 'cuda'))
 
     optimizer.zero_grad(set_to_none=True)
     pbar = tqdm(dataloader, desc="Training Task 2a", leave=False)
@@ -176,9 +174,10 @@ def train(model, train_loader, val_loader, loss_fn_name, optimizer, scheduler, d
     best_checkpoint = None
     
     early_stopping = EarlyStopping(patience=config.patience, mode='max')
-    
+    scaler = torch.amp.GradScaler("cuda")
+
     for epoch in range(config.epochs):
-        train_result = train_epoch(model, train_loader, optimizer, device, config, clipper)
+        train_result = train_epoch(model, train_loader, optimizer, device, config, clipper, scaler)
         val_result = eval_epoch(model, val_loader, device, config)
         
         train_loss = train_result['loss']

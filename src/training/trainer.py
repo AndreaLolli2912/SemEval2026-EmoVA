@@ -24,6 +24,7 @@ def train_epoch(
     device,
     config,
     clipper=None,
+    scaler=None,
     collect_preds=False,
     max_collect_samples=5000,
 ):
@@ -37,7 +38,6 @@ def train_epoch(
     collected = 0
     
     optimizer.zero_grad(set_to_none=True)
-    scaler = torch.amp.GradScaler("cuda")
     
     pbar = tqdm(dataloader, desc="Training", leave=False)
     
@@ -256,12 +256,13 @@ def train(model, train_loader, val_loader, loss_fn_name, optimizer, scheduler, d
     # We invert score because EarlyStopping expects 'min' by default, 
     # or we can set mode='max'. Let's assume your EarlyStopping supports mode='max'.
     early_stopping = EarlyStopping(patience=config.patience, mode='max')
-    
+    scaler = torch.amp.GradScaler("cuda")
+
     for epoch in range(config.epochs):
         
         # Train
         train_result = train_epoch(
-            model, train_loader, loss_fn_name, optimizer, device, config, clipper
+            model, train_loader, loss_fn_name, optimizer, device, config, clipper, scaler
         )
         
         # Evaluate
