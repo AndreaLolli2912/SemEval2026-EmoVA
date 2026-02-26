@@ -124,8 +124,9 @@ def eval_epoch(
 
         user_ids = batch['user_ids']
 
-        predictions = model(input_ids, attention_mask, history_va, seq_lengths, seq_mask)
-        loss = criterion(predictions, targets)
+        with torch.amp.autocast('cuda'):
+            predictions = model(input_ids, attention_mask, history_va, seq_lengths, seq_mask)
+            loss = criterion(predictions.float(), targets.float())
 
         batch_size = input_ids.size(0)
         total_loss += loss.item() * batch_size

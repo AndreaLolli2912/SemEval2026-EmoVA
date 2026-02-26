@@ -453,8 +453,9 @@ def collect_predictions_for_eval(
             max_seq_len = input_ids.size(1)
             
             # Forward pass
-            preds = model(input_ids, attention_mask, seq_lengths, seq_mask)
-            preds = preds.cpu().numpy()  # [B, S, 2]
+            with torch.amp.autocast('cuda'):
+                preds = model(input_ids, attention_mask, seq_lengths, seq_mask)
+            preds = preds.float().cpu().numpy()  # [B, S, 2]
             
             # Gold values
             valences = batch['valences'].numpy()  # [B, S]

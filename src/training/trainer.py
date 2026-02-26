@@ -174,12 +174,9 @@ def eval_epoch(
 
         targets = torch.stack([valences, arousals], dim=-1)
 
-        predictions = model(input_ids, attention_mask, seq_lengths, seq_mask)
-        
-        # 1. Compute Loss (for Scheduler)
-        # Use simple MSE for logging, or consistent loss if preferred
-        # Here we use masked_mse_loss for interpretability (absolute error)
-        loss = masked_mse_loss(predictions, targets, seq_mask, valence_share=0.5)
+        with torch.amp.autocast('cuda'):
+            predictions = model(input_ids, attention_mask, seq_lengths, seq_mask)
+            loss = masked_mse_loss(predictions.float(), targets.float(), seq_mask, valence_share=0.5)
 
         mask = seq_mask.bool()
         num_valid = mask.sum().item()
