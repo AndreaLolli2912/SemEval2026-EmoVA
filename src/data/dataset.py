@@ -135,3 +135,72 @@ class EmoVADataset2a(Dataset):
             'texts': sample['texts'], 
             'target': torch.tensor(sample['target'], dtype=self.dtype)
         }
+
+class EmoVATestDataset2a(Dataset):
+    """
+    Only for inference on Test Set.
+    - Doesn't apply dropna
+    - Filtering is_forecasting_user = True
+    - apply step = 1
+    """
+
+    def __init__(self, path, dtype=torch.float32,
+                 constrain_output=False, max_history=5):
+        self.dtype = dtype
+        self.constrain_output = constrain_output
+        self.max_history_length = max_history
+
+        VALENCE_MAX = 2.0
+        AROUSAL_MAX = 2.0
+
+        df = pd.read_csv(path)
+        df['timestamp'] = pd.to_datetime(df['timestamp'])
+        df = df.sort_values(['user_id', 'timestamp']).reset_index(drop=True)
+
+        #  Only forecasting users
+        df = df[df['is_forecasting_user'] == True].copy()
+
+        self.samples = []
+
+        for user_id, group in df.groupby('user_id', sort=False):
+            text_ids   = group['text_id'].tolist()
+            texts      = group['text'].tolist()
+            raw_valence = group['valence'].to_numpy(dtype=np.float32)
+            raw_arousal = group['arousal'].to_numpy(dtype=np.float32)
+
+            num_texts = len(text_ids)
+            
+            for i in range(0, num_texts):
+                slw_start = max(0, i - self.max_history_length + 1)
+                slw_end   = i + 1
+
+                seq_text    = texts[slw_start:slw_end]
+                seq_valence = raw_valence[slw_start:slw_end].copy()
+                seq_arousal = raw_arousal[slw_start:slw_end].copy()
+
+                if self.constrain_output:
+                    seq_valence = seq_valence / VALENCE_MAX
+                    seq_arousal = seq_arousal / AROUSAL_MAX
+
+                self.samples.append({
+                    'user_id' : user_id,
+                    'text_id' : text_ids[i],
+                    'texts'   : seq_text,
+                    'valences': seq_valence,
+                    'arousals': seq_arousal,
+                    'target'  : torch.zeros(2, dtype=torch.float32)  # placeholder
+                })
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, idx):
+        sample = self.samples[idx]
+        return {
+            'user_id' : sample['user_id'],
+            'text_id' : sample['text_id'],
+            'valences': torch.tensor(sample['valences'], dtype=self.dtype),
+            'arousals': torch.tensor(sample['arousals'], dtype=self.dtype),
+            'texts'   : sample['texts'],
+            'target'  : sample['target']
+        }
