@@ -40,7 +40,7 @@ class EmoVADataset(Dataset):
                 'timestamps': group['timestamp'].to_numpy(),
                 'collection_phases': group['collection_phase'].tolist(),
                 'is_words': group['is_words'].tolist(),
-                'valences': raw_valence/VALENCE_MAX if self.constrain_output else raw_valence,
+                'valences': (raw_valence-2)/VALENCE_MAX if self.constrain_output else raw_valence,
                 'arousals': raw_arousal/AROUSAL_MAX if self.constrain_output else raw_arousal
             })
 
@@ -108,7 +108,7 @@ class EmoVADataset2a(Dataset):
             seq_arousal=raw_arousal[slw_start:slw_end]
 
             if self.constrain_output:
-                seq_valence = seq_valence/VALENCE_MAX
+                seq_valence = (seq_valence-2)/VALENCE_MAX
                 seq_arousal = seq_arousal/AROUSAL_MAX
 
             tgt_val = target_valence[i]
