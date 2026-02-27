@@ -6,8 +6,7 @@ This repository contains the model architecture of our solution for the SemEval-
 
 The system implements a regression-based neural network architecture designed to predict continuous emotional Valence and Arousal (VA) from longitudinal text data. The architecture is split into two primary configurations to address the different subtasks.
 
-<img width="2816" height="1536" alt="Gemini_Generated_Image_7jks0y7jks0y7jks" src="https://github.com/user-attachments/assets/740fbcde-cae2-4f3d-9d3a-1df68fef604a" />
-
+[fig_architecture.drawio (1).pdf](https://github.com/user-attachments/files/25604616/fig_architecture.drawio.1.pdf)
 
 ### Subtask 1 (Longitudinal Affect Assessment)
 The primary model processes sequences of user essays to capture emotional variation over time. The pipeline consists of:
@@ -58,4 +57,5 @@ The forecasting model extends the base architecture to predict future emotional 
 * **`SEMEVAL2026_EMOVA_ABLATION_2a.ipynb`**: Execution notebook for ablation studies specific to the Subtask 2a forecasting models.
 * **`SEMEVAL2026_EMOVA_SUBMISSION.ipynb`**: Final inference notebook used to format predictions for Codabench submission.
 * **`SemEval2026_EmoVA.pdf`**: System description paper detailing the architecture and experimental methodology.
+
 
